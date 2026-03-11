@@ -267,7 +267,7 @@ def summarize_in_japanese_with_github_ai(
             },
         ],
         "temperature": 0.2,
-        "max_tokens": 200,
+        "max_tokens": 2000,
     }
 
     request = urllib.request.Request(
@@ -323,7 +323,7 @@ def summarize_in_japanese_with_local_ai(
             },
         ],
         "temperature": 0.2,
-        "max_tokens": 200,
+        "max_tokens": 2000,
     }
 
     headers = {
@@ -528,7 +528,8 @@ def main() -> int:
         return 1
 
     entries = filter_entries(parse_feed(xml_bytes), since, until)
-    ai_token = os.environ.get("GITHUB_MODELS_TOKEN")
+    # GITHUB_MODELS_TOKEN を優先し、未設定の場合は COPILOT_GITHUB_TOKEN を代わりに使う
+    ai_token = os.environ.get("GITHUB_MODELS_TOKEN") or os.environ.get("COPILOT_GITHUB_TOKEN")
 
     if args.language == "ja":
         markdown = render_markdown_ja(

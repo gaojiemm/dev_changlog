@@ -16,9 +16,9 @@ on:
         required: false
         default: "true"
       ai_provider:
-        description: "AI provider: copilot-cli | github | local"
+        description: "AI provider: github | copilot-cli | local"
         required: false
-        default: "copilot-cli"
+        default: "github"
       ai_model:
         description: "Model ID for github/local providers."
         required: false
@@ -41,13 +41,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-
-      - name: Install Copilot CLI
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsSL https://raw.githubusercontent.com/github/copilot-cli/main/scripts/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Compute JST date window (last 7 days incl. today)
         id: dates
@@ -74,8 +67,9 @@ jobs:
 
       - name: Generate GitHub Changelog weekly summary
         env:
+          # GITHUB_MODELS_TOKEN を優先し、未設定の場合は COPILOT_GITHUB_TOKEN を代わりに使う
+          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN || secrets.COPILOT_GITHUB_TOKEN }}
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
         run: |
           set -euo pipefail
 
