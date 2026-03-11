@@ -20,11 +20,14 @@ from html.parser import HTMLParser
 
 FEED_URL = "https://github.blog/changelog/feed/"
 MODELS_API_URL = "https://models.github.ai/inference/chat/completions"
+MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 LOCAL_AI_DEFAULT_URL = "http://127.0.0.1:11434/v1/chat/completions"
 DEFAULT_PROMPT_TEMPLATE_PATH = "prompts/changelog_weekly_ja.md"
 GITHUB_MODEL_FALLBACKS = [
     "openai/gpt-4.1-mini",
     "openai/gpt-4.1",
+    "microsoft/phi-4-mini-instruct",
+    "meta/llama-3.3-70b-instruct",
 ]
 
 
@@ -313,6 +316,42 @@ def summarize_in_japanese_with_github_ai(
         return None
 
 
+def fetch_available_github_models(token: str) -> set[str] | None:
+    request = urllib.request.Request(
+        MODELS_CATALOG_URL,
+        headers={
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+            "User-Agent": "github-changelog-workflow/1.0",
+        },
+        method="GET",
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = response.read()
+    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
+        print(f"[github-ai] Unable to load model catalog: {exc}", file=sys.stderr)
+        return None
+
+    try:
+        parsed = json.loads(body.decode("utf-8"))
+    except ValueError:
+        return None
+
+    if not isinstance(parsed, list):
+        return None
+
+    model_ids: set[str] = set()
+    for item in parsed:
+        if isinstance(item, dict):
+            model_id = item.get("id")
+            if isinstance(model_id, str) and model_id:
+                model_ids.add(model_id)
+    return model_ids or None
+
+
 def summarize_in_japanese_with_local_ai(
     endpoint_url: str,
     model: str,
@@ -468,6 +507,13 @@ def render_markdown_ja(
     generated = None
     if ai_provider == "github":
         candidate_models = [ai_model] + [m for m in GITHUB_MODEL_FALLBACKS if m != ai_model]
+        available_models = fetch_available_github_models(ai_token or "")
+        if available_models is not None:
+            filtered = [m for m in candidate_models if m in available_models]
+            if filtered:
+                candidate_models = filtered
+            else:
+                print("[github-ai] None of preferred models are listed in catalog for this token.", file=sys.stderr)
         for candidate_model in candidate_models:
             if candidate_model != ai_model:
                 print(f"[github-ai] Retrying with fallback model: {candidate_model}", file=sys.stderr)
@@ -486,7 +532,7 @@ def render_markdown_ja(
         return render_ai_unavailable_markdown(entries, since, until, "GitHub Copilot CLI の認証または実行に失敗しました")
     if ai_provider == "local":
         return render_ai_unavailable_markdown(entries, since, until, "ローカルAIエンドポイントへの接続に失敗しました")
-    return render_ai_unavailable_markdown(entries, since, until, "GitHub Models で要約を生成できませんでした")
+    return render_ai_unavailable_markdown(entries, since, until, "GitHub Models で要約を生成できませんでした（token の models:read 権限または model access を確認してください）")
 
 
 def render_markdown(entries: list[Entry], since: date, until: date) -> str:
