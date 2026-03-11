@@ -22,6 +22,10 @@ FEED_URL = "https://github.blog/changelog/feed/"
 MODELS_API_URL = "https://models.github.ai/inference/chat/completions"
 LOCAL_AI_DEFAULT_URL = "http://127.0.0.1:11434/v1/chat/completions"
 DEFAULT_PROMPT_TEMPLATE_PATH = "prompts/changelog_weekly_ja.md"
+GITHUB_MODEL_FALLBACKS = [
+    "openai/gpt-4.1-mini",
+    "openai/gpt-4.1",
+]
 
 
 class _HTMLTextExtractor(HTMLParser):
@@ -463,7 +467,13 @@ def render_markdown_ja(
 
     generated = None
     if ai_provider == "github":
-        generated = summarize_in_japanese_with_github_ai(ai_token or "", ai_model, prompt)
+        candidate_models = [ai_model] + [m for m in GITHUB_MODEL_FALLBACKS if m != ai_model]
+        for candidate_model in candidate_models:
+            if candidate_model != ai_model:
+                print(f"[github-ai] Retrying with fallback model: {candidate_model}", file=sys.stderr)
+            generated = summarize_in_japanese_with_github_ai(ai_token or "", candidate_model, prompt)
+            if generated:
+                break
     elif ai_provider == "local":
         generated = summarize_in_japanese_with_local_ai(local_ai_url, ai_model, local_ai_api_key, prompt)
     else:
