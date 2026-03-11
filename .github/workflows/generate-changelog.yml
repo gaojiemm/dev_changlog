@@ -12,11 +12,15 @@ on:
         required: false
         default: ""
       use_ai:
-        description: "Use GitHub Models to create Japanese summaries (requires GITHUB_MODELS_TOKEN secret)."
+        description: "Use AI to generate Japanese summary."
         required: false
         default: "true"
+      ai_provider:
+        description: "AI provider: copilot-cli | github | local"
+        required: false
+        default: "copilot-cli"
       ai_model:
-        description: "GitHub Models model ID, for example openai/gpt-5-mini"
+        description: "Model ID for github/local providers."
         required: false
         default: "openai/gpt-5-mini"
   schedule:
@@ -37,6 +41,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
+
+      - name: Install Copilot CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL https://raw.githubusercontent.com/github/copilot-cli/main/scripts/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Compute JST date window (last 7 days incl. today)
         id: dates
@@ -63,24 +74,38 @@ jobs:
 
       - name: Generate GitHub Changelog weekly summary
         env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
           GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
         run: |
           set -euo pipefail
 
           USE_AI="${{ github.event.inputs.use_ai || 'true' }}"
+          AI_PROVIDER="${{ github.event.inputs.ai_provider || 'copilot-cli' }}"
           AI_MODEL="${{ github.event.inputs.ai_model || 'openai/gpt-5-mini' }}"
 
           AI_FLAGS=""
           if [ "$USE_AI" = "true" ]; then
-            AI_FLAGS="--use-github-ai --ai-model $AI_MODEL"
+            AI_FLAGS="--use-github-ai --ai-provider $AI_PROVIDER --ai-model $AI_MODEL"
           fi
 
-          python3 scripts/generate_github_changelog.py \
-            --since "${{ steps.dates.outputs.since }}" \
-            --until "${{ steps.dates.outputs.until }}" \
-            --language ja \
-            $AI_FLAGS \
-            --output CHANGELOG.md
+          if [ "$AI_PROVIDER" = "copilot-cli" ]; then
+            python3 scripts/generate_github_changelog.py \
+              --since "${{ steps.dates.outputs.since }}" \
+              --until "${{ steps.dates.outputs.until }}" \
+              --language ja \
+              --prompt-template prompts/changelog_weekly_ja.md \
+              $AI_FLAGS \
+              --copilot-cli-command "copilot --silent" \
+              --output CHANGELOG.md
+          else
+            python3 scripts/generate_github_changelog.py \
+              --since "${{ steps.dates.outputs.since }}" \
+              --until "${{ steps.dates.outputs.until }}" \
+              --language ja \
+              --prompt-template prompts/changelog_weekly_ja.md \
+              $AI_FLAGS \
+              --output CHANGELOG.md
+          fi
 
       - name: Show changelog
         run: cat CHANGELOG.md

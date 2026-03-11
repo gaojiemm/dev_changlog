@@ -38,16 +38,82 @@ The workflow filters GitHub Changelog posts by JST publication date, then render
 - title and link
 - summary text (Japanese when AI token is configured)
 
+### Prompt template
+
+The Japanese output format is controlled by a prompt template file:
+
+- `prompts/changelog_weekly_ja.md`
+
+If you want to change the fixed output format, summary style, or extraction rules later, edit this file only.
+
 ### Japanese summary mode
 
 By default, the workflow outputs Japanese format (`--language ja`).
 
-- If `GITHUB_MODELS_TOKEN` secret is set and `use_ai=true`, it calls GitHub Models and generates Japanese summaries.
-- If token is missing, the workflow still succeeds and outputs the original English summary text as fallback.
+- Recommended on GitHub Actions: `ai_provider=copilot-cli` and repository secret `COPILOT_GITHUB_TOKEN`.
+- If `ai_provider=github`, set `GITHUB_MODELS_TOKEN` to call GitHub Models.
+- If token/auth is missing, the workflow still succeeds and outputs a Japanese fallback status summary.
 
 Recommended model:
 
 - `openai/gpt-5-mini`
+
+### Local AI mode (for local runs)
+
+If your requirement is to analyze with **GitHub Copilot CLI on local machine**, use `ai-provider=copilot-cli`.
+
+Example (Copilot CLI):
+
+```bash
+python3 scripts/generate_github_changelog.py \
+	--since 2026-03-05 \
+	--until 2026-03-11 \
+	--language ja \
+	--use-github-ai \
+	--ai-provider copilot-cli \
+	--copilot-cli-command "copilot" \
+	--prompt-template prompts/changelog_weekly_ja.md \
+	--output CHANGELOG.md
+```
+
+Notes:
+
+- The script passes the summary prompt to Copilot CLI via stdin and reads stdout as the Japanese summary.
+- If your local Copilot command is different, set `--copilot-cli-command` (or env `COPILOT_CLI_COMMAND`).
+
+You can use a local OpenAI-compatible endpoint (for example, Ollama) instead of GitHub Models.
+
+Default local endpoint in the script:
+
+- `http://127.0.0.1:11434/v1/chat/completions`
+
+Example with Ollama (no API key):
+
+```bash
+python3 scripts/generate_github_changelog.py \
+	--since 2026-03-05 \
+	--until 2026-03-11 \
+	--language ja \
+	--use-github-ai \
+	--ai-provider local \
+	--ai-model qwen2.5:14b \
+	--output CHANGELOG.md
+```
+
+If your local endpoint requires an API key:
+
+```bash
+python3 scripts/generate_github_changelog.py \
+	--since 2026-03-05 \
+	--until 2026-03-11 \
+	--language ja \
+	--use-github-ai \
+	--ai-provider local \
+	--local-ai-url http://127.0.0.1:11434/v1/chat/completions \
+	--local-ai-api-key YOUR_LOCAL_KEY \
+	--ai-model qwen2.5:14b \
+	--output CHANGELOG.md
+```
 
 ### Data source
 
@@ -59,7 +125,7 @@ The workflow reads from the official RSS feed:
 
 1. Go to **Actions → Generate Changelog → Run workflow**.
 2. Optionally fill in `since` and `until` (format `YYYY-MM-DD`).
-3. Optionally set `use_ai` (`true` / `false`) and `ai_model`.
+3. Optionally set `use_ai` (`true` / `false`), `ai_provider`, and `ai_model`.
 3. Download the `CHANGELOG.md` artifact from the finished run.
 
 ## Local run
@@ -77,10 +143,18 @@ export GITHUB_MODELS_TOKEN=YOUR_TOKEN_WITH_MODELS_READ
 python3 scripts/generate_github_changelog.py --since 2026-03-05 --until 2026-03-11 --language ja --use-github-ai --ai-model openai/gpt-5-mini --output CHANGELOG.md
 ```
 
+Run with Copilot CLI token (headless):
+
+```bash
+export COPILOT_GITHUB_TOKEN=YOUR_COPILOT_REQUESTS_TOKEN
+python3 scripts/generate_github_changelog.py --since 2026-03-05 --until 2026-03-11 --language ja --use-github-ai --ai-provider copilot-cli --copilot-cli-command "copilot --silent" --prompt-template prompts/changelog_weekly_ja.md --output CHANGELOG.md
+```
+
 ## Requirements
 
 - Workflow runner: `ubuntu-latest`.
 - Python 3 is used with the standard library only.
 - No extra secrets or permissions beyond `contents: read` are required.
-- For AI Japanese summaries, add repo secret `GITHUB_MODELS_TOKEN` (token must include `models:read`).
+- For Copilot CLI in GitHub Actions, add repo secret `COPILOT_GITHUB_TOKEN`.
+- For GitHub Models provider, add repo secret `GITHUB_MODELS_TOKEN` (token must include `models:read`).
 - If no posts match the requested date window, the workflow still succeeds and uploads a minimal `CHANGELOG.md` stating that no entries were found.
