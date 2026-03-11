@@ -1,0 +1,73 @@
+name: Generate Changelog
+
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "Start date (YYYY-MM-DD, JST). Leave blank to auto-compute last 14 days."
+        required: false
+        default: ""
+      until:
+        description: "End date (YYYY-MM-DD, JST). Leave blank to use today."
+        required: false
+        default: ""
+  schedule:
+    # Every Sunday at 00:00 JST (= Sunday 15:00 UTC)
+    - cron: "0 15 * * 0"
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history required by git-cliff
+
+      - name: Install git-cliff
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff
+
+      - name: Compute JST date window (last 14 days incl. today)
+        id: dates
+        shell: bash
+        run: |
+          set -euo pipefail
+          TZ=Asia/Tokyo
+          export TZ
+
+          INPUT_SINCE="${{ github.event.inputs.since || '' }}"
+          INPUT_UNTIL="${{ github.event.inputs.until || '' }}"
+
+          if [ -n "$INPUT_SINCE" ] && [ -n "$INPUT_UNTIL" ]; then
+            SINCE="$INPUT_SINCE"
+            UNTIL="$INPUT_UNTIL"
+          else
+            UNTIL=$(date +%Y-%m-%d)
+            SINCE=$(date -d "13 days ago" +%Y-%m-%d)
+          fi
+
+          echo "since=$SINCE" >> $GITHUB_OUTPUT
+          echo "until=$UNTIL" >> $GITHUB_OUTPUT
+          echo "Changelog window: $SINCE → $UNTIL (JST)"
+
+      - name: Generate changelog with git-cliff
+        run: |
+          git-cliff \
+            --since "${{ steps.dates.outputs.since }}" \
+            --until "${{ steps.dates.outputs.until }}" \
+            -o CHANGELOG.md
+
+      - name: Show changelog
+        run: cat CHANGELOG.md
+
+      - name: Upload changelog artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog-${{ steps.dates.outputs.since }}_${{ steps.dates.outputs.until }}
+          path: CHANGELOG.md
+          retention-days: 90
