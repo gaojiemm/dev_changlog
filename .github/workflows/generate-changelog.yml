@@ -108,6 +108,13 @@ jobs:
 
           python3 scripts/generate_github_changelog.py "${ARGS[@]}"
 
+          if [ "$USE_AI" = "true" ] && grep -q "AI要約を生成できませんでした" CHANGELOG.md; then
+            echo "ERROR: AI summarization failed and fallback content was generated." >&2
+            echo "Hint: verify GITHUB_MODELS_TOKEN (or COPILOT_GITHUB_TOKEN fallback) and ensure token has models:read permission." >&2
+            echo "Hint: verify model id is available for your account, e.g. openai/gpt-4.1-mini." >&2
+            exit 1
+          fi
+
       - name: Show changelog
         run: cat CHANGELOG.md
 
