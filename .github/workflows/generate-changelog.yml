@@ -4,13 +4,21 @@ on:
   workflow_dispatch:
     inputs:
       since:
-        description: "Start date (YYYY-MM-DD, JST). Leave blank to auto-compute last 14 days."
+        description: "Start date (YYYY-MM-DD, JST). Leave blank to auto-compute the last 7 days."
         required: false
         default: ""
       until:
         description: "End date (YYYY-MM-DD, JST). Leave blank to use today."
         required: false
         default: ""
+      use_ai:
+        description: "Use GitHub Models to create Japanese summaries (requires GITHUB_MODELS_TOKEN secret)."
+        required: false
+        default: "true"
+      ai_model:
+        description: "GitHub Models model ID, for example openai/gpt-5-mini"
+        required: false
+        default: "openai/gpt-5-mini"
   schedule:
     # Every Sunday at 00:00 JST (= Sunday 15:00 UTC)
     - cron: "0 15 * * 0"
@@ -24,15 +32,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history required by git-cliff
 
-      - name: Install git-cliff
-        uses: taiki-e/install-action@v2
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          tool: git-cliff
+          python-version: '3.x'
 
-      - name: Compute JST date window (last 14 days incl. today)
+      - name: Compute JST date window (last 7 days incl. today)
         id: dates
         shell: bash
         run: |
@@ -48,58 +54,33 @@ jobs:
             UNTIL="$INPUT_UNTIL"
           else
             UNTIL=$(date +%Y-%m-%d)
-            SINCE=$(date -d "13 days ago" +%Y-%m-%d)
+            SINCE=$(date -d "6 days ago" +%Y-%m-%d)
           fi
 
           echo "since=$SINCE" >> $GITHUB_OUTPUT
           echo "until=$UNTIL" >> $GITHUB_OUTPUT
-          echo "Changelog window: $SINCE → $UNTIL (JST)"
+          echo "GitHub Changelog summary window: $SINCE → $UNTIL (JST)"
 
-      - name: Resolve commit range for git-cliff
-        id: range
-        shell: bash
+      - name: Generate GitHub Changelog weekly summary
+        env:
+          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
         run: |
           set -euo pipefail
 
-          SINCE_DATE="${{ steps.dates.outputs.since }} 00:00:00 +0900"
-          UNTIL_DATE="${{ steps.dates.outputs.until }} 23:59:59 +0900"
+          USE_AI="${{ github.event.inputs.use_ai || 'true' }}"
+          AI_MODEL="${{ github.event.inputs.ai_model || 'openai/gpt-5-mini' }}"
 
-          mapfile -t COMMITS < <(git rev-list \
-            --reverse \
-            --since="$SINCE_DATE" \
-            --until="$UNTIL_DATE" \
-            HEAD)
-
-          if [ "${#COMMITS[@]}" -eq 0 ]; then
-            echo "range=" >> "$GITHUB_OUTPUT"
-            echo "No commits found between $SINCE_DATE and $UNTIL_DATE"
-            exit 0
+          AI_FLAGS=""
+          if [ "$USE_AI" = "true" ]; then
+            AI_FLAGS="--use-github-ai --ai-model $AI_MODEL"
           fi
 
-          FIRST_COMMIT="${COMMITS[0]}"
-          LAST_INDEX=$((${#COMMITS[@]} - 1))
-          LAST_COMMIT="${COMMITS[$LAST_INDEX]}"
-
-          if PARENT_COMMIT=$(git rev-parse "${FIRST_COMMIT}^" 2>/dev/null); then
-            RANGE="${PARENT_COMMIT}..${LAST_COMMIT}"
-          else
-            RANGE="$LAST_COMMIT"
-          fi
-
-          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
-          echo "Resolved changelog range: $RANGE"
-
-      - name: Generate changelog with git-cliff
-        run: |
-          if [ -n "${{ steps.range.outputs.range }}" ]; then
-            git-cliff "${{ steps.range.outputs.range }}" -o CHANGELOG.md
-          else
-            cat > CHANGELOG.md <<'EOF'
-          # Changelog
-
-          No changes were found in the requested date window.
-          EOF
-          fi
+          python3 scripts/generate_github_changelog.py \
+            --since "${{ steps.dates.outputs.since }}" \
+            --until "${{ steps.dates.outputs.until }}" \
+            --language ja \
+            $AI_FLAGS \
+            --output CHANGELOG.md
 
       - name: Show changelog
         run: cat CHANGELOG.md
