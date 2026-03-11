@@ -274,9 +274,8 @@ def summarize_in_japanese_with_github_ai(
         MODELS_API_URL,
         data=json.dumps(payload).encode("utf-8"),
         headers={
-            "Accept": "application/vnd.github+json",
+            "Accept": "application/json",
             "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
             "Content-Type": "application/json",
             "User-Agent": "github-changelog-workflow/1.0",
         },
@@ -286,21 +285,27 @@ def summarize_in_japanese_with_github_ai(
     try:
         with urllib.request.urlopen(request, timeout=45) as response:
             body = response.read()
-    except urllib.error.HTTPError:
+    except urllib.error.HTTPError as exc:
+        body_err = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
+        print(f"[github-ai] HTTP {exc.code}: {body_err[:300]}", file=sys.stderr)
         return None
-    except urllib.error.URLError:
+    except urllib.error.URLError as exc:
+        print(f"[github-ai] URLError: {exc.reason}", file=sys.stderr)
         return None
 
     try:
         parsed = json.loads(body.decode("utf-8"))
-        return (
+        content = (
             parsed.get("choices", [{}])[0]
             .get("message", {})
             .get("content", "")
             .strip()
-            or None
         )
-    except (ValueError, KeyError, IndexError, TypeError):
+        if not content:
+            print(f"[github-ai] Empty response body: {body.decode('utf-8', errors='replace')[:300]}", file=sys.stderr)
+        return content or None
+    except (ValueError, KeyError, IndexError, TypeError) as exc:
+        print(f"[github-ai] Parse error: {exc}", file=sys.stderr)
         return None
 
 
@@ -450,6 +455,7 @@ def render_markdown_ja(
         return render_ai_unavailable_markdown(entries, since, until, "AI要約が無効です")
 
     if ai_provider == "github" and not ai_token:
+        print("[github-ai] No token found. Set GITHUB_MODELS_TOKEN or COPILOT_GITHUB_TOKEN.", file=sys.stderr)
         return render_ai_unavailable_markdown(entries, since, until, "GITHUB_MODELS_TOKEN が未設定です")
 
     template = load_prompt_template(prompt_template_path)
