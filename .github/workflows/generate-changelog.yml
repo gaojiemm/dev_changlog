@@ -76,6 +76,20 @@ jobs:
           AI_PROVIDER="${{ github.event.inputs.ai_provider || 'github' }}"
           AI_MODEL="${{ github.event.inputs.ai_model || 'openai/gpt-5-mini' }}"
 
+          echo "use_ai=$USE_AI"
+          echo "ai_provider=$AI_PROVIDER"
+          echo "ai_model=$AI_MODEL"
+          if [ -n "${GITHUB_MODELS_TOKEN:-}" ]; then
+            echo "token_status=present"
+          else
+            echo "token_status=missing"
+          fi
+
+          if [ "$USE_AI" = "true" ] && [ "$AI_PROVIDER" = "github" ] && [ -z "${GITHUB_MODELS_TOKEN:-}" ]; then
+            echo "ERROR: AI provider is github, but GITHUB_MODELS_TOKEN (or COPILOT_GITHUB_TOKEN fallback) is missing." >&2
+            exit 1
+          fi
+
           ARGS=(
             --since "${{ steps.dates.outputs.since }}"
             --until "${{ steps.dates.outputs.until }}"
