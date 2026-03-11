@@ -76,6 +76,11 @@ jobs:
           AI_PROVIDER="${{ github.event.inputs.ai_provider || 'github' }}"
           AI_MODEL="${{ github.event.inputs.ai_model || 'openai/gpt-4.1-mini' }}"
 
+          if [ "$AI_PROVIDER" = "github" ] && [ "$AI_MODEL" = "openai/gpt-5-mini" ]; then
+            echo "Selected model openai/gpt-5-mini is not accessible for this account. Switching to openai/gpt-4.1-mini." >&2
+            AI_MODEL="openai/gpt-4.1-mini"
+          fi
+
           echo "use_ai=$USE_AI"
           echo "ai_provider=$AI_PROVIDER"
           echo "ai_model=$AI_MODEL"
