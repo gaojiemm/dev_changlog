@@ -55,12 +55,51 @@ jobs:
           echo "until=$UNTIL" >> $GITHUB_OUTPUT
           echo "Changelog window: $SINCE → $UNTIL (JST)"
 
+      - name: Resolve commit range for git-cliff
+        id: range
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SINCE_DATE="${{ steps.dates.outputs.since }} 00:00:00 +0900"
+          UNTIL_DATE="${{ steps.dates.outputs.until }} 23:59:59 +0900"
+
+          mapfile -t COMMITS < <(git rev-list \
+            --reverse \
+            --since="$SINCE_DATE" \
+            --until="$UNTIL_DATE" \
+            HEAD)
+
+          if [ "${#COMMITS[@]}" -eq 0 ]; then
+            echo "range=" >> "$GITHUB_OUTPUT"
+            echo "No commits found between $SINCE_DATE and $UNTIL_DATE"
+            exit 0
+          fi
+
+          FIRST_COMMIT="${COMMITS[0]}"
+          LAST_INDEX=$((${#COMMITS[@]} - 1))
+          LAST_COMMIT="${COMMITS[$LAST_INDEX]}"
+
+          if PARENT_COMMIT=$(git rev-parse "${FIRST_COMMIT}^" 2>/dev/null); then
+            RANGE="${PARENT_COMMIT}..${LAST_COMMIT}"
+          else
+            RANGE="$LAST_COMMIT"
+          fi
+
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+          echo "Resolved changelog range: $RANGE"
+
       - name: Generate changelog with git-cliff
         run: |
-          git-cliff \
-            --since "${{ steps.dates.outputs.since }}" \
-            --until "${{ steps.dates.outputs.until }}" \
-            -o CHANGELOG.md
+          if [ -n "${{ steps.range.outputs.range }}" ]; then
+            git-cliff "${{ steps.range.outputs.range }}" -o CHANGELOG.md
+          else
+            cat > CHANGELOG.md <<'EOF'
+          # Changelog
+
+          No changes were found in the requested date window.
+          EOF
+          fi
 
       - name: Show changelog
         run: cat CHANGELOG.md
