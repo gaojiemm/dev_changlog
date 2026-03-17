@@ -30,6 +30,26 @@ GITHUB_MODEL_FALLBACKS = [
     "meta/llama-3.3-70b-instruct",
 ]
 
+# Known entries missing from RSS feed but present on official GitHub Changelog page
+KNOWN_MISSING_ENTRIES = [
+    {
+        "date": "2026-03-11",
+        "title": "Major agentic capabilities improvements in GitHub Copilot for JetBrains IDEs",
+        "link": "https://github.blog/changelog/2026-03-11-major-agentic-capabilities-improvements-in-github-copilot-for-jetbrains-ides",
+        "changelog_type": "Improvement",
+        "labels": ["Copilot"],
+        "summary": "GitHub Copilot for JetBrains IDEs received major improvements to agentic capabilities.",
+    },
+    {
+        "date": "2026-03-11",
+        "title": "Explore a repository using Copilot on the web",
+        "link": "https://github.blog/changelog/2026-03-11-explore-a-repository-using-copilot-on-the-web",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GitHub Copilot now allows exploring repositories using Copilot on the web.",
+    },
+]
+
 
 class _HTMLTextExtractor(HTMLParser):
     def __init__(self) -> None:
@@ -202,6 +222,29 @@ def filter_entries(entries: list[Entry], since: date, until: date) -> list[Entry
     ]
     filtered.sort(key=lambda entry: (entry.post_date, entry.published_jst), reverse=True)
     return filtered
+
+
+def add_known_missing_entries(entries: list[Entry], since: date, until: date) -> list[Entry]:
+    """Add known entries missing from RSS feed but present on official GitHub Changelog page."""
+    for known in KNOWN_MISSING_ENTRIES:
+        entry_date = datetime.strptime(known["date"], "%Y-%m-%d").date()
+        if since <= entry_date <= until:
+            # Create Entry object for known missing item
+            known_entry = Entry(
+                title=known["title"],
+                link=known["link"],
+                post_date=entry_date,
+                published_jst=datetime.combine(entry_date, datetime.min.time()).replace(
+                    tzinfo=datetime.strptime("+0900", "%z").tzinfo
+                ),
+                changelog_type=known["changelog_type"],
+                labels=known["labels"],
+                summary=known["summary"],
+            )
+            entries.append(known_entry)
+    # Re-sort after adding known entries
+    entries.sort(key=lambda entry: (entry.post_date, entry.published_jst), reverse=True)
+    return entries
 
 
 def type_to_ja(value: str) -> str:
@@ -590,6 +633,7 @@ def main() -> int:
         return 1
 
     entries = filter_entries(parse_feed(xml_bytes), since, until)
+    entries = add_known_missing_entries(entries, since, until)
     # GITHUB_MODELS_TOKEN を優先し、未設定の場合は COPILOT_GITHUB_TOKEN を代わりに使う
     ai_token = os.environ.get("GITHUB_MODELS_TOKEN") or os.environ.get("COPILOT_GITHUB_TOKEN")
 
