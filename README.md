@@ -1,160 +1,451 @@
-# changlog
+# Changelog Workflow 実行手順・環境設定・トラブルシューティング
 
-GitHub Actions workflow that generates a **Japanese weekly summary** from [GitHub Changelog](https://github.blog/changelog/) using its RSS feed.
+このファイルは、このリポジトリを別の環境でも再現できるようにするための手順書です。
+macOS、Linux、GitHub Actions を前提に、セットアップ手順、実行コマンド、AI の有効化確認、よくある失敗の対処をまとめています。
 
-## How it works
+## 1. このリポジトリでやっていること
 
-| Trigger | Behaviour |
-|---|---|
-| **Scheduled** (every Sunday 00:00 JST) | Computes `since` / `until` automatically (today − 6 days → today), fetches the GitHub Changelog RSS feed, and writes a 1-week Japanese summary |
-| **`workflow_dispatch`** | Uses the `since` / `until` inputs you provide; falls back to the same auto-compute logic if left blank |
+- GitHub Changelog の RSS を取得する
+- 指定期間の投稿だけを抽出する
+- `Action` と `Copilot` に関係する更新を日本語で整形する
+- 出力結果を `CHANGELOG.md` に書き出す
 
-The generated `CHANGELOG.md` is uploaded as a workflow artifact, retained for **90 days**.
+使用スクリプト:
 
-## File structure
+- `scripts/generate_github_changelog.py`
 
-```
-.
-├── .github/
-│   └── workflows/
-│       └── generate-changelog.yml   # Main workflow
-├── scripts/
-│   └── generate_github_changelog.py # RSS fetch and summary generator
-└── README.md
-```
-
-## Configuration
-
-### Date window
-
-Edit the `Compute JST date window` step in the workflow to change the lookback period.  
-Default: **7 days** (today inclusive).
-
-The workflow filters GitHub Changelog posts by JST publication date, then renders a Markdown digest with:
-
-- post date
-- changelog type (Japanese labels such as `リリース`, `改善`, `廃止`)
-- labels (`Copilot`, `Application Security`, etc.)
-- title and link
-- summary text (Japanese when AI token is configured)
-
-### Prompt template
-
-The Japanese output format is controlled by a prompt template file:
+出力フォーマット定義:
 
 - `prompts/changelog_weekly_ja.md`
 
-If you want to change the fixed output format, summary style, or extraction rules later, edit this file only.
-
-### Japanese summary mode
-
-By default, the workflow outputs Japanese format (`--language ja`).
-
-- Recommended on GitHub Actions: `ai_provider=copilot-cli` and repository secret `COPILOT_GITHUB_TOKEN`.
-- If `ai_provider=github`, set `GITHUB_MODELS_TOKEN` to call GitHub Models.
-- If token/auth is missing, the workflow still succeeds and outputs a Japanese fallback status summary.
-
-Recommended model:
-
-- `openai/gpt-5-mini`
-
-### Local AI mode (for local runs)
-
-If your requirement is to analyze with **GitHub Copilot CLI on local machine**, use `ai-provider=copilot-cli`.
-
-Example (Copilot CLI):
-
-```bash
-python3 scripts/generate_github_changelog.py \
-	--since 2026-03-05 \
-	--until 2026-03-11 \
-	--language ja \
-	--use-github-ai \
-	--ai-provider copilot-cli \
-	--copilot-cli-command "copilot" \
-	--prompt-template prompts/changelog_weekly_ja.md \
-	--output CHANGELOG.md
-```
-
-Notes:
-
-- The script passes the summary prompt to Copilot CLI via stdin and reads stdout as the Japanese summary.
-- If your local Copilot command is different, set `--copilot-cli-command` (or env `COPILOT_CLI_COMMAND`).
-
-You can use a local OpenAI-compatible endpoint (for example, Ollama) instead of GitHub Models.
-
-Default local endpoint in the script:
-
-- `http://127.0.0.1:11434/v1/chat/completions`
-
-Example with Ollama (no API key):
-
-```bash
-python3 scripts/generate_github_changelog.py \
-	--since 2026-03-05 \
-	--until 2026-03-11 \
-	--language ja \
-	--use-github-ai \
-	--ai-provider local \
-	--ai-model qwen2.5:14b \
-	--output CHANGELOG.md
-```
-
-If your local endpoint requires an API key:
-
-```bash
-python3 scripts/generate_github_changelog.py \
-	--since 2026-03-05 \
-	--until 2026-03-11 \
-	--language ja \
-	--use-github-ai \
-	--ai-provider local \
-	--local-ai-url http://127.0.0.1:11434/v1/chat/completions \
-	--local-ai-api-key YOUR_LOCAL_KEY \
-	--ai-model qwen2.5:14b \
-	--output CHANGELOG.md
-```
-
-### Data source
-
-The workflow reads from the official RSS feed:
+主なデータソース:
 
 - `https://github.blog/changelog/feed/`
 
-## Manual run
+## 2. 前提条件
 
-1. Go to **Actions → Generate Changelog → Run workflow**.
-2. Optionally fill in `since` and `until` (format `YYYY-MM-DD`).
-3. Optionally set `use_ai` (`true` / `false`), `ai_provider`, and `ai_model`.
-3. Download the `CHANGELOG.md` artifact from the finished run.
+最低限必要なものは以下です。
 
-## Local run
+- Python 3
+- Git
+- インターネット接続
+- AI を使う場合は以下のいずれか
+  - GitHub Copilot CLI
+  - GitHub Models 用トークン
 
-You can run the same summary generator locally:
+推奨環境:
+
+- macOS
+- Linux
+- Windows の場合は WSL2 上での実行を推奨
+
+Python 追加ライブラリは不要です。標準ライブラリのみで動作します。
+
+## 3. 新しい環境で最初にやること
+
+### 3.1 リポジトリを取得
 
 ```bash
-python3 scripts/generate_github_changelog.py --since 2026-03-05 --until 2026-03-11 --language ja --output CHANGELOG.md
+git clone <YOUR_REPOSITORY_URL>
+cd changelog-workflow
 ```
 
-Run with GitHub AI:
+### 3.2 Python の確認
 
 ```bash
-export GITHUB_MODELS_TOKEN=YOUR_TOKEN_WITH_MODELS_READ
-python3 scripts/generate_github_changelog.py --since 2026-03-05 --until 2026-03-11 --language ja --use-github-ai --ai-model openai/gpt-5-mini --output CHANGELOG.md
+python3 --version
 ```
 
-Run with Copilot CLI token (headless):
+期待結果:
+
+- `Python 3.x` が表示される
+
+### 3.3 スクリプト単体で動くか確認
+
+まずは AI なしで確認します。
 
 ```bash
-export COPILOT_GITHUB_TOKEN=YOUR_COPILOT_REQUESTS_TOKEN
-python3 scripts/generate_github_changelog.py --since 2026-03-05 --until 2026-03-11 --language ja --use-github-ai --ai-provider copilot-cli --copilot-cli-command "copilot --silent" --prompt-template prompts/changelog_weekly_ja.md --output CHANGELOG.md
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --output CHANGELOG.md
 ```
 
-## Requirements
+期待結果:
 
-- Workflow runner: `ubuntu-latest`.
-- Python 3 is used with the standard library only.
-- No extra secrets or permissions beyond `contents: read` are required.
-- For Copilot CLI in GitHub Actions, add repo secret `COPILOT_GITHUB_TOKEN`.
-- For GitHub Models provider, add repo secret `GITHUB_MODELS_TOKEN` (token must include `models:read`).
-- If no posts match the requested date window, the workflow still succeeds and uploads a minimal `CHANGELOG.md` stating that no entries were found.
+- `CHANGELOG.md` が生成される
+- AI が無効でも、期間集計つきのフォールバック出力は生成される
+
+## 4. AI を使ってローカル実行する方法
+
+ローカルでは、以下の 2 パターンがあります。
+
+### 4.1 方法 A: GitHub Copilot CLI を使う
+
+この方法は、ローカル端末で一番使いやすい方法です。
+
+#### インストール確認
+
+```bash
+copilot --version
+```
+
+期待結果:
+
+- バージョン番号が表示される
+
+表示されない場合は GitHub Copilot CLI をインストールしてください。
+
+#### PATH の設定
+
+Copilot CLI が `~/.local/bin/copilot` に入る場合があります。
+
+zsh の場合:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
+```
+
+bash の場合:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+source ~/.bash_profile
+```
+
+Linux bash の場合も基本的には同じです。
+
+反映確認:
+
+```bash
+command -v copilot
+copilot --version
+```
+
+#### 認証確認
+
+最小確認コマンド:
+
+```bash
+copilot --prompt "OK だけ出力してください" --silent
+```
+
+期待結果:
+
+- `OK` のような応答が返る
+
+#### 実行コマンド
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --use-github-ai \
+  --ai-provider copilot-cli \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+### 4.2 方法 B: GitHub Models を使う
+
+Copilot CLI を使わず、トークンで GitHub Models を直接呼ぶ方法です。
+
+#### トークン設定
+
+zsh:
+
+```bash
+export GITHUB_MODELS_TOKEN=YOUR_TOKEN
+```
+
+bash:
+
+```bash
+export GITHUB_MODELS_TOKEN=YOUR_TOKEN
+```
+
+永続化したい場合は、`~/.zprofile` または `~/.bash_profile` に追記してください。
+
+#### 実行コマンド
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --use-github-ai \
+  --ai-provider github \
+  --ai-model openai/gpt-4.1-mini \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+### 4.3 AI が有効か確認する方法
+
+以下のどちらかなら AI 出力に成功しています。
+
+- `CHANGELOG.md` に `Action:` と `Copilot:` が本文として出ている
+- `AI要約を生成できませんでした` という文言が出ていない
+
+確認例:
+
+```bash
+grep -n "AI要約を生成できませんでした\|^Action:\|^Copilot:" CHANGELOG.md
+```
+
+## 5. GitHub Actions で実行する方法
+
+このリポジトリには以下のワークフローがあります。
+
+- `.github/workflows/generate-changelog.yml`
+
+### 5.1 実行方法
+
+GitHub 上で以下を開きます。
+
+- `Actions` → `Generate Changelog` → `Run workflow`
+
+入力値:
+
+- `since`: 開始日 `YYYY-MM-DD`
+- `until`: 終了日 `YYYY-MM-DD`
+- `use_ai`: `true` または `false`
+- `ai_provider`: `github` / `copilot-cli` / `local`
+- `ai_model`: 例 `openai/gpt-4.1-mini`
+
+### 5.2 GitHub Actions で推奨する設定
+
+GitHub Actions では `github` プロバイダを推奨します。
+
+推奨理由:
+
+- GitHub Models API をそのまま利用できる
+- CLI バイナリ依存を避けられる
+- ランナー上の認証トラブルを減らせる
+
+推奨入力:
+
+- `use_ai=true`
+- `ai_provider=github`
+- `ai_model=openai/gpt-4.1-mini`
+
+### 5.3 Secrets の設定
+
+リポジトリの以下に設定します。
+
+- `Settings` → `Secrets and variables` → `Actions`
+
+設定候補:
+
+- `GITHUB_MODELS_TOKEN`
+- `COPILOT_GITHUB_TOKEN`
+
+ワークフローでは `GITHUB_MODELS_TOKEN` を優先し、未設定時は `COPILOT_GITHUB_TOKEN` を代わりに使います。
+
+## 6. 実行例
+
+### 6.1 AI なし
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --output CHANGELOG.md
+```
+
+### 6.2 Copilot CLI あり
+
+```bash
+source ~/.zprofile 2>/dev/null || true
+export PATH="$HOME/.local/bin:$PATH"
+
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --use-github-ai \
+  --ai-provider copilot-cli \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+### 6.3 GitHub Models あり
+
+```bash
+export GITHUB_MODELS_TOKEN=YOUR_TOKEN
+
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --use-github-ai \
+  --ai-provider github \
+  --ai-model openai/gpt-4.1-mini \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+## 7. 別のシステムに移したときの確認チェックリスト
+
+新しい macOS、Linux、WSL2 などに移した場合は、以下を順番に確認します。
+
+### 7.1 共通
+
+- `git clone` できた
+- `python3 --version` が通る
+- `scripts/generate_github_changelog.py` が存在する
+- `prompts/changelog_weekly_ja.md` が存在する
+
+### 7.2 Copilot CLI を使う場合
+
+- `command -v copilot` が通る
+- `copilot --version` が通る
+- `copilot --prompt "OK だけ出力してください" --silent` が成功する
+- `PATH` に `~/.local/bin` が入っている
+
+### 7.3 GitHub Models を使う場合
+
+- `echo $GITHUB_MODELS_TOKEN` が空ではない
+- トークンに `models:read` 権限がある
+
+### 7.4 出力確認
+
+- `CHANGELOG.md` が生成される
+- `Action:` と `Copilot:` が出力される
+- `AI要約を生成できませんでした` が出ていない
+
+## 8. よくある問題と対処
+
+### 8.1 `copilot` コマンドが見つからない
+
+症状:
+
+- `command not found: copilot`
+- `Cannot find GitHub Copilot CLI`
+
+対処:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
+command -v copilot
+```
+
+bash の場合:
+
+```bash
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bash_profile
+source ~/.bash_profile
+command -v copilot
+```
+
+### 8.2 Copilot CLI はあるが AI 出力に失敗する
+
+症状:
+
+- `CHANGELOG.md` に `AI要約を生成できませんでした` が出る
+
+確認:
+
+```bash
+copilot --prompt "OK だけ出力してください" --silent
+```
+
+対処:
+
+- Copilot CLI の認証状態を確認する
+- 端末プロファイルを再読み込みする
+- `--copilot-cli-command "copilot --silent"` を明示する
+
+### 8.3 GitHub Actions で AI 生成に失敗する
+
+症状:
+
+- ワークフローが `token missing` で失敗する
+- フォールバック文面が生成される
+
+対処:
+
+- `GITHUB_MODELS_TOKEN` を設定する
+- 代替として `COPILOT_GITHUB_TOKEN` を設定する
+- `ai_provider=github` を使う
+- `ai_model=openai/gpt-4.1-mini` を使う
+
+### 8.4 出力が英語混じりになる、または形式が崩れる
+
+確認項目:
+
+- `--prompt-template prompts/changelog_weekly_ja.md` を付けているか
+- テンプレートファイルを別環境にコピーし忘れていないか
+
+対処:
+
+- 必ず `prompts/changelog_weekly_ja.md` を使う
+- 形式を変えたい場合はテンプレートだけを編集する
+
+### 8.5 対象期間の件数が想定より少ない
+
+原因候補:
+
+- 指定期間内の GitHub Changelog 投稿自体が少ない
+- このテンプレートは `Action` と `Copilot` のみを対象にしている
+- Security や Projects の投稿は意図的に除外される
+
+確認方法:
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --output CHANGELOG.md
+```
+
+AI なしで件数だけ確認し、対象の絞り込みが原因かを切り分けます。
+
+## 9. 最低限これだけやれば動く手順
+
+Copilot CLI を使う最短手順です。
+
+```bash
+git clone <YOUR_REPOSITORY_URL>
+cd changelog-workflow
+
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zprofile
+source ~/.zprofile
+
+copilot --version
+copilot --prompt "OK だけ出力してください" --silent
+
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
+  --use-github-ai \
+  --ai-provider copilot-cli \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+## 10. 推奨運用
+
+- ローカル端末: `copilot-cli`
+- GitHub Actions: `github`
+- 出力形式を変えたい場合: `prompts/changelog_weekly_ja.md` だけを編集する
+- 実行結果を確認する場合: `CHANGELOG.md` を見る
+
+## 11. 実行成功の最終確認
+
+成功していれば以下を満たします。
+
+- `CHANGELOG.md` が生成される
+- `説明`、`対象期間`、`Action:`、`Copilot:` が出力される
+- 日本語でまとまっている
+- `AI要約を生成できませんでした` が含まれていない
