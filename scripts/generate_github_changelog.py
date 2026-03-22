@@ -20,6 +20,12 @@ from html.parser import HTMLParser
 
 FEED_URL = "https://github.blog/changelog/feed/"
 OFFICIAL_PAGE_URL = "https://github.blog/changelog/?label=actions%2Ccopilot&opened-months=12"
+SITEMAP_URLS = [
+    "https://github.blog/changelog-sitemap4.xml",  # Most recent (2025-05~)
+    "https://github.blog/changelog-sitemap.xml",
+    "https://github.blog/changelog-sitemap3.xml",
+    "https://github.blog/changelog-sitemap2.xml",
+]
 CACHE_FILE = "cache.json"
 MODELS_API_URL = "https://models.github.ai/inference/chat/completions"
 MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
@@ -369,56 +375,72 @@ def get_cached_entries(since: date, until: date) -> list[Entry]:
 
 
 def fetch_from_official_page(since: date, until: date) -> list[Entry]:
-    """Fetch entries from official GitHub Changelog page"""
+    """Fetch entries from GitHub Changelog sitemaps.
+    Tries sitemaps in order from newest to oldest, stopping when the date range is covered."""
     entries = []
-    try:
-        request = urllib.request.Request(
-            OFFICIAL_PAGE_URL,
-            headers={
-                "User-Agent": "github-changelog-workflow/1.0",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            html = response.read().decode("utf-8")
-        
-        # Extract changelog links using regex
-        pattern = r'/changelog/(\d{4}-\d{2}-\d{2})-([^"]+)'
-        matches = re.findall(pattern, html)
-        
-        for date_str, slug in matches:
-            post_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-            if not (since <= post_date <= until):
-                continue
-            
-            link = f"https://github.blog/changelog/{date_str}-{slug}"
-            title = slug.replace("-", " ").title()
-            
-            # Determine type and labels from slug
-            changelog_type = "Release"
-            labels = []
-            if "action" in slug.lower():
-                labels.append("Actions")
-            if "copilot" in slug.lower():
-                labels.append("Copilot")
-            
-            entry = Entry(
-                title=title,
-                link=link,
-                post_date=post_date,
-                published_jst=datetime.combine(post_date, datetime.min.time()).replace(
-                    tzinfo=datetime.strptime("+0900", "%z").tzinfo
-                ),
-                changelog_type=changelog_type,
-                labels=labels if labels else ["GitHub"],
-                summary=f"Update published on {date_str}",
+    seen_links: set[str] = set()
+    
+    # Labels that indicate Actions or Copilot from URL slug
+    ACTION_KEYWORDS = {"action", "runner", "workflow", "oidc", "reusable", "artifact"}
+    COPILOT_KEYWORDS = {"copilot", "copilot-cli", "coding-agent", "gpt", "ai-models"}
+    
+    def slug_to_labels(slug: str) -> list[str]:
+        slug_lower = slug.lower()
+        labels = []
+        if any(k in slug_lower for k in ACTION_KEYWORDS):
+            labels.append("Actions")
+        if any(k in slug_lower for k in COPILOT_KEYWORDS):
+            labels.append("Copilot")
+        return labels
+    
+    for sitemap_url in SITEMAP_URLS:
+        try:
+            request = urllib.request.Request(
+                sitemap_url,
+                headers={"User-Agent": "github-changelog-workflow/1.0"},
             )
-            entries.append(entry)
+            with urllib.request.urlopen(request, timeout=30) as response:
+                content = response.read().decode("utf-8")
+            
+            pattern = r'https://github\.blog/changelog/(\d{4}-\d{2}-\d{2})-([^\s<"\']+)'
+            sitemap_entries = re.findall(pattern, content)
+            
+            found_in_range = False
+            for date_str, slug in sitemap_entries:
+                post_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                if not (since <= post_date <= until):
+                    continue
+                
+                found_in_range = True
+                link = f"https://github.blog/changelog/{date_str}-{slug}"
+                if link in seen_links:
+                    continue
+                seen_links.add(link)
+                
+                labels = slug_to_labels(slug)
+                if not labels:
+                    continue  # Skip entries not related to Actions or Copilot
+                
+                entries.append(Entry(
+                    title=slug.replace("-", " ").title(),
+                    link=link,
+                    post_date=post_date,
+                    published_jst=datetime.combine(post_date, datetime.min.time()).replace(
+                        tzinfo=datetime.strptime("+0900", "%z").tzinfo
+                    ),
+                    changelog_type="Release",
+                    labels=labels,
+                    summary="",
+                ))
+            
+            if found_in_range:
+                print(f"[data] Sitemap {sitemap_url.split('/')[-1]} provided {len(entries)} entries", file=sys.stderr)
+                break  # Found data in this sitemap, no need to try older ones
         
-        return entries
-    except Exception as e:
-        print(f"Warning: Could not fetch from official page: {e}", file=sys.stderr)
-        return []
+        except Exception as e:
+            print(f"Warning: Could not fetch sitemap {sitemap_url}: {e}", file=sys.stderr)
+    
+    return entries
 
 
 def merge_entries_by_link(entries: list[Entry]) -> list[Entry]:
