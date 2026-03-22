@@ -98,6 +98,47 @@ KNOWN_MISSING_ENTRIES = [
         "labels": ["Copilot"],
         "summary": "GitHub Copilot now allows exploring repositories using Copilot on the web.",
     },
+    # Additional Copilot entries (2026-03-17 and 2026-03-18)
+    {
+        "date": "2026-03-17",
+        "title": "Copilot coding agent works faster with semantic code search",
+        "link": "https://github.blog/changelog/2026-03-17-copilot-coding-agent-works-faster-with-semantic-code-search",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot coding agent now works faster with semantic code search capabilities.",
+    },
+    {
+        "date": "2026-03-17",
+        "title": "Copilot usage metrics now includes organization level GitHub Copilot CLI activity",
+        "link": "https://github.blog/changelog/2026-03-17-copilot-usage-metrics-now-includes-organization-level-github-copilot-cli-activity",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot usage metrics now include organization level GitHub Copilot CLI activity.",
+    },
+    {
+        "date": "2026-03-17",
+        "title": "GPT-5.4 mini is now generally available for GitHub Copilot",
+        "link": "https://github.blog/changelog/2026-03-17-gpt-5-4-mini-is-now-generally-available-for-github-copilot",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GPT-5.4 mini model is now generally available for GitHub Copilot.",
+    },
+    {
+        "date": "2026-03-18",
+        "title": "Configure Copilot coding agents validation tools",
+        "link": "https://github.blog/changelog/2026-03-18-configure-copilot-coding-agents-validation-tools",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Configure validation tools for Copilot coding agents.",
+    },
+    {
+        "date": "2026-03-18",
+        "title": "GPT-5.3 Codex Long-Term Support in GitHub Copilot",
+        "link": "https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GPT-5.3 Codex model now has long-term support in GitHub Copilot.",
+    },
 ]
 
 
