@@ -1,0 +1,115 @@
+{
+  "metadata": {
+    "description": "Cache for GitHub Changelog entries that are missing from RSS feed",
+    "last_updated": "2026-03-22T00:00:00Z",
+    "format_version": 1
+  },
+  "entries": {
+    "2026-03-11_2026-03-18": [
+      {
+        "date": "2026-03-18",
+        "title": "GPT-5.3 Codex Long-Term Support in GitHub Copilot",
+        "link": "https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GPT-5.3 Codex model now has long-term support in GitHub Copilot."
+      },
+      {
+        "date": "2026-03-18",
+        "title": "Configure Copilot coding agents validation tools",
+        "link": "https://github.blog/changelog/2026-03-18-configure-copilot-coding-agents-validation-tools",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Configure validation tools for Copilot coding agents."
+      },
+      {
+        "date": "2026-03-17",
+        "title": "GPT-5.4 mini is now generally available for GitHub Copilot",
+        "link": "https://github.blog/changelog/2026-03-17-gpt-5-4-mini-is-now-generally-available-for-github-copilot",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GPT-5.4 mini model is now generally available for GitHub Copilot."
+      },
+      {
+        "date": "2026-03-17",
+        "title": "Copilot usage metrics now includes organization level GitHub Copilot CLI activity",
+        "link": "https://github.blog/changelog/2026-03-17-copilot-usage-metrics-now-includes-organization-level-github-copilot-cli-activity",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot usage metrics now include organization level GitHub Copilot CLI activity."
+      },
+      {
+        "date": "2026-03-17",
+        "title": "Copilot coding agent works faster with semantic code search",
+        "link": "https://github.blog/changelog/2026-03-17-copilot-coding-agent-works-faster-with-semantic-code-search",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot coding agent now works faster with semantic code search capabilities."
+      },
+      {
+        "date": "2026-03-13",
+        "title": "Updates to GitHub Copilot for students",
+        "link": "https://github.blog/changelog/2026-03-13-updates-to-github-copilot-for-students",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Updates to GitHub Copilot for students have been released."
+      },
+      {
+        "date": "2026-03-13",
+        "title": "Optionally skip approval for Copilot coding agent Actions workflows",
+        "link": "https://github.blog/changelog/2026-03-13-optionally-skip-approval-for-copilot-coding-agent-actions-workflows",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Optionally skip approval for Copilot coding agent Actions workflows."
+      },
+      {
+        "date": "2026-03-13",
+        "title": "Self-hosted runner minimum version enforcement paused",
+        "link": "https://github.blog/changelog/2026-03-13-self-hosted-runner-minimum-version-enforcement-paused",
+        "changelog_type": "Release",
+        "labels": ["Actions"],
+        "summary": "Self-hosted runner minimum version enforcement has been paused."
+      },
+      {
+        "date": "2026-03-12",
+        "title": "Actions OIDC tokens now support repository custom properties",
+        "link": "https://github.blog/changelog/2026-03-12-actions-oidc-tokens-now-support-repository-custom-properties",
+        "changelog_type": "Release",
+        "labels": ["Actions"],
+        "summary": "GitHub Actions OIDC tokens now support repository custom properties."
+      },
+      {
+        "date": "2026-03-12",
+        "title": "Copilot auto model selection is generally available in JetBrains IDEs",
+        "link": "https://github.blog/changelog/2026-03-12-copilot-auto-model-selection-is-generally-available-in-jetbrains-ides",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot auto model selection is now generally available in JetBrains IDEs."
+      },
+      {
+        "date": "2026-03-11",
+        "title": "Request Copilot code review from GitHub CLI",
+        "link": "https://github.blog/changelog/2026-03-11-request-copilot-code-review-from-github-cli",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Request Copilot code review directly from GitHub CLI."
+      },
+      {
+        "date": "2026-03-11",
+        "title": "Major agentic capabilities improvements in GitHub Copilot for JetBrains IDEs",
+        "link": "https://github.blog/changelog/2026-03-11-major-agentic-capabilities-improvements-in-github-copilot-for-jetbrains-ides",
+        "changelog_type": "Improvement",
+        "labels": ["Copilot"],
+        "summary": "GitHub Copilot for JetBrains IDEs received major improvements to agentic capabilities."
+      },
+      {
+        "date": "2026-03-11",
+        "title": "Explore a repository using Copilot on the web",
+        "link": "https://github.blog/changelog/2026-03-11-explore-a-repository-using-copilot-on-the-web",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "GitHub Copilot now allows exploring repositories using Copilot on the web."
+      }
+    ]
+  }
+}

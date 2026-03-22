@@ -19,6 +19,8 @@ from html.parser import HTMLParser
 
 
 FEED_URL = "https://github.blog/changelog/feed/"
+OFFICIAL_PAGE_URL = "https://github.blog/changelog/?label=actions%2Ccopilot&opened-months=12"
+CACHE_FILE = "cache.json"
 MODELS_API_URL = "https://models.github.ai/inference/chat/completions"
 MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
 LOCAL_AI_DEFAULT_URL = "http://127.0.0.1:11434/v1/chat/completions"
@@ -313,6 +315,171 @@ def filter_entries(entries: list[Entry], since: date, until: date) -> list[Entry
     ]
     filtered.sort(key=lambda entry: (entry.post_date, entry.published_jst), reverse=True)
     return filtered
+
+
+def load_cache() -> dict:
+    """Load cached entries from cache.json"""
+    if not os.path.exists(CACHE_FILE):
+        return {"metadata": {}, "entries": {}}
+    try:
+        with open(CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return {"metadata": {}, "entries": {}}
+
+
+def save_cache(cache: dict) -> None:
+    """Save cache to cache.json"""
+    cache["metadata"]["last_updated"] = datetime.now(timezone.utc).isoformat() + "Z"
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(cache, f, indent=2, ensure_ascii=False)
+    except IOError as e:
+        print(f"Warning: Could not save cache: {e}", file=sys.stderr)
+
+
+def get_cache_key(since: date, until: date) -> str:
+    """Generate cache key for date range"""
+    return f"{since.isoformat()}_{until.isoformat()}"
+
+
+def get_cached_entries(since: date, until: date) -> list[Entry]:
+    """Retrieve entries from cache for the given date range"""
+    cache = load_cache()
+    cache_key = get_cache_key(since, until)
+    
+    entries = []
+    if cache_key in cache.get("entries", {}):
+        for entry_dict in cache["entries"][cache_key]:
+            try:
+                entry = Entry(
+                    title=entry_dict["title"],
+                    link=entry_dict["link"],
+                    post_date=datetime.strptime(entry_dict["date"], "%Y-%m-%d").date(),
+                    published_jst=datetime.fromisoformat(entry_dict.get("published_jst", entry_dict["date"] + "T00:00:00+09:00")),
+                    changelog_type=entry_dict["changelog_type"],
+                    labels=entry_dict.get("labels", []),
+                    summary=entry_dict.get("summary", ""),
+                )
+                entries.append(entry)
+            except (KeyError, ValueError):
+                continue
+    
+    return entries
+
+
+def fetch_from_official_page(since: date, until: date) -> list[Entry]:
+    """Fetch entries from official GitHub Changelog page"""
+    entries = []
+    try:
+        request = urllib.request.Request(
+            OFFICIAL_PAGE_URL,
+            headers={
+                "User-Agent": "github-changelog-workflow/1.0",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            },
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            html = response.read().decode("utf-8")
+        
+        # Extract changelog links using regex
+        pattern = r'/changelog/(\d{4}-\d{2}-\d{2})-([^"]+)'
+        matches = re.findall(pattern, html)
+        
+        for date_str, slug in matches:
+            post_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            if not (since <= post_date <= until):
+                continue
+            
+            link = f"https://github.blog/changelog/{date_str}-{slug}"
+            title = slug.replace("-", " ").title()
+            
+            # Determine type and labels from slug
+            changelog_type = "Release"
+            labels = []
+            if "action" in slug.lower():
+                labels.append("Actions")
+            if "copilot" in slug.lower():
+                labels.append("Copilot")
+            
+            entry = Entry(
+                title=title,
+                link=link,
+                post_date=post_date,
+                published_jst=datetime.combine(post_date, datetime.min.time()).replace(
+                    tzinfo=datetime.strptime("+0900", "%z").tzinfo
+                ),
+                changelog_type=changelog_type,
+                labels=labels if labels else ["GitHub"],
+                summary=f"Update published on {date_str}",
+            )
+            entries.append(entry)
+        
+        return entries
+    except Exception as e:
+        print(f"Warning: Could not fetch from official page: {e}", file=sys.stderr)
+        return []
+
+
+def merge_entries_by_link(entries: list[Entry]) -> list[Entry]:
+    """Remove duplicate entries based on link"""
+    seen_links = set()
+    merged = []
+    for entry in entries:
+        if entry.link not in seen_links:
+            seen_links.add(entry.link)
+            merged.append(entry)
+    return merged
+
+
+def check_and_fill_missing_entries(entries: list[Entry], since: date, until: date) -> list[Entry]:
+    """
+    Three-layer strategy to fill missing entries:
+    1. Use RSS data (already in entries)
+    2. Check cache for older entries
+    3. Fetch from official page if still missing
+    """
+    print(f"[data] RSS provided {len(entries)} entries", file=sys.stderr)
+    
+    # Layer 2: Try cache
+    cached_entries = get_cached_entries(since, until)
+    if cached_entries:
+        print(f"[data] Cache has {len(cached_entries)} entries", file=sys.stderr)
+        entries.extend(cached_entries)
+        entries = merge_entries_by_link(entries)
+    
+    # Layer 3: Try official page if still not enough
+    if len(entries) < 5:  # Arbitrary threshold
+        print(f"[data] Fetching from official page...", file=sys.stderr)
+        web_entries = fetch_from_official_page(since, until)
+        if web_entries:
+            print(f"[data] Official page provided {len(web_entries)} entries", file=sys.stderr)
+            entries.extend(web_entries)
+            entries = merge_entries_by_link(entries)
+            
+            # Update cache with newly fetched entries
+            try:
+                cache = load_cache()
+                cache_key = get_cache_key(since, until)
+                cache["entries"][cache_key] = [
+                    {
+                        "date": e.post_date.isoformat(),
+                        "title": e.title,
+                        "link": e.link,
+                        "changelog_type": e.changelog_type,
+                        "labels": e.labels,
+                        "summary": e.summary,
+                        "published_jst": e.published_jst.isoformat(),
+                    }
+                    for e in web_entries
+                ]
+                save_cache(cache)
+            except Exception as e:
+                print(f"Warning: Could not update cache: {e}", file=sys.stderr)
+    
+    # Re-sort
+    entries.sort(key=lambda entry: (entry.post_date, entry.published_jst), reverse=True)
+    return entries
 
 
 def add_known_missing_entries(entries: list[Entry], since: date, until: date) -> list[Entry]:
@@ -724,7 +891,18 @@ def main() -> int:
         return 1
 
     entries = filter_entries(parse_feed(xml_bytes), since, until)
-    entries = add_known_missing_entries(entries, since, until)
+    
+    # Apply three-layer strategy: RSS → cache → official page
+    entries = check_and_fill_missing_entries(entries, since, until)
+    
+    # Fallback: Add known missing entries if somehow still empty
+    if len(entries) == 0:
+        print("[data] Falling back to KNOWN_MISSING_ENTRIES", file=sys.stderr)
+        entries = add_known_missing_entries(entries, since, until)
+    else:
+        # Ensure no critical entries are missing by checking against known list
+        entries = add_known_missing_entries(entries, since, until)
+    
     # GITHUB_MODELS_TOKEN を優先し、未設定の場合は COPILOT_GITHUB_TOKEN を代わりに使う
     ai_token = os.environ.get("GITHUB_MODELS_TOKEN") or os.environ.get("COPILOT_GITHUB_TOKEN")
 
