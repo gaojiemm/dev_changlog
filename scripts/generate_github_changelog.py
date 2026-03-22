@@ -32,6 +32,56 @@ GITHUB_MODEL_FALLBACKS = [
 
 # Known entries missing from RSS feed but present on official GitHub Changelog page
 KNOWN_MISSING_ENTRIES = [
+    # Action entries
+    {
+        "date": "2026-03-13",
+        "title": "Self-hosted runner minimum version enforcement paused",
+        "link": "https://github.blog/changelog/2026-03-13-self-hosted-runner-minimum-version-enforcement-paused",
+        "changelog_type": "Release",
+        "labels": ["Actions"],
+        "summary": "Self-hosted runner minimum version enforcement has been paused.",
+    },
+    {
+        "date": "2026-03-12",
+        "title": "Actions OIDC tokens now support repository custom properties",
+        "link": "https://github.blog/changelog/2026-03-12-actions-oidc-tokens-now-support-repository-custom-properties",
+        "changelog_type": "Release",
+        "labels": ["Actions"],
+        "summary": "GitHub Actions OIDC tokens now support repository custom properties.",
+    },
+    # Copilot entries
+    {
+        "date": "2026-03-13",
+        "title": "Optionally skip approval for Copilot coding agent Actions workflows",
+        "link": "https://github.blog/changelog/2026-03-13-optionally-skip-approval-for-copilot-coding-agent-actions-workflows",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Optionally skip approval for Copilot coding agent Actions workflows.",
+    },
+    {
+        "date": "2026-03-13",
+        "title": "Updates to GitHub Copilot for students",
+        "link": "https://github.blog/changelog/2026-03-13-updates-to-github-copilot-for-students",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Updates to GitHub Copilot for students have been released.",
+    },
+    {
+        "date": "2026-03-12",
+        "title": "Copilot auto model selection is generally available in JetBrains IDEs",
+        "link": "https://github.blog/changelog/2026-03-12-copilot-auto-model-selection-is-generally-available-in-jetbrains-ides",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Copilot auto model selection is now generally available in JetBrains IDEs.",
+    },
+    {
+        "date": "2026-03-11",
+        "title": "Request Copilot code review from GitHub CLI",
+        "link": "https://github.blog/changelog/2026-03-11-request-copilot-code-review-from-github-cli",
+        "changelog_type": "Release",
+        "labels": ["Copilot"],
+        "summary": "Request Copilot code review directly from GitHub CLI.",
+    },
     {
         "date": "2026-03-11",
         "title": "Major agentic capabilities improvements in GitHub Copilot for JetBrains IDEs",
