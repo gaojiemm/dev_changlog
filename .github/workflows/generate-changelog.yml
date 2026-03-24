@@ -16,8 +16,8 @@ on:
         required: false
         default: "true"
   schedule:
-    # 毎週日曜 00:00 JST
-    - cron: "0 15 * * 0"
+    # 毎週水曜 09:00 JST
+    - cron: "0 0 * * 3"
 
 jobs:
   changelog:
@@ -26,15 +26,15 @@ jobs:
       contents: read
 
     steps:
-      - name: リポジトリを取得
+      - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Python をセットアップ
+      - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
-      - name: 対象期間を計算
+      - name: Compute date range
         id: dates
         shell: bash
         run: |
@@ -57,13 +57,13 @@ jobs:
           echo "until=$UNTIL" >> $GITHUB_OUTPUT
           echo "対象期間: $SINCE ～ $UNTIL (JST)"
 
-      - name: Copilot CLI をインストール
+      - name: Install Copilot CLI
         if: ${{ github.event.inputs.use_ai != 'false' }}
         run: |
           npm install -g @github/copilot
           copilot --version
 
-      - name: CHANGELOG を生成
+      - name: Generate changelog
         env:
           # Copilot CLI 認証トークン（Fine-grained PAT）
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -103,13 +103,13 @@ jobs:
             exit 1
           fi
 
-      - name: 生成結果を検証
+      - name: Verify generated changelog
         run: |
           python3 scripts/verify_changelog.py \
             --since "${{ steps.dates.outputs.since }}" \
             --until "${{ steps.dates.outputs.until }}" | tee verify_result.txt
 
-      - name: 検証結果をサマリーに出力
+      - name: Publish verification summary
         run: |
           {
             echo "検証結果"
@@ -119,10 +119,10 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: CHANGELOG を表示
+      - name: Show changelog
         run: cat CHANGELOG.md
 
-      - name: 成果物を保存
+      - name: Upload artifacts
         uses: actions/upload-artifact@v5
         with:
           name: changelog-${{ steps.dates.outputs.since }}_${{ steps.dates.outputs.until }}

@@ -142,6 +142,7 @@ python3 scripts/generate_github_changelog.py \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
   --output CHANGELOG.md
 ```
 
@@ -180,7 +181,8 @@ GitHub 上で以下を開きます。
 
 - 生成内容に `AI要約を生成できませんでした` が含まれる場合は失敗します
 - `scripts/verify_changelog.py` で Action / Copilot の対象記事が揃っているか確認します
-- 検証に通った `CHANGELOG.md` だけを成果物として保存します
+- Workflow summary には `verify_result.txt` の検証結果だけを表示します
+- 検証に通った `CHANGELOG.md` と `verify_result.txt` を成果物として保存します
 
 ### 5.2 GitHub Actions で推奨する設定
 
@@ -242,6 +244,7 @@ python3 scripts/generate_github_changelog.py \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
   --output CHANGELOG.md
 ```
 
@@ -412,6 +415,7 @@ python3 scripts/generate_github_changelog.py \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
   --output CHANGELOG.md
 ```
 
@@ -462,11 +466,11 @@ python3 scripts/verify_changelog.py
 
 出力内容:
 
-- 本地 CHANGELOG.md の条目一覧（分類付き）
+- ローカル `CHANGELOG.md` の条目一覧（分類付き）
 - 公式 Sitemap から取得した条目一覧（分類付き）
 - 不足している条目
-- 多すぎる条目
-- 統計情報（Action/Copilot/Other の個数）
+- ローカルのみに存在する条目
+- 集計情報（Action/Copilot/Other の件数）
 
 #### 例 2: 特定期間を検証
 
@@ -502,16 +506,16 @@ python3 scripts/verify_changelog.py --include-all
 **統計情報:**
 
 ```
-本地 CHANGELOG.md:
+ローカル CHANGELOG.md:
   - Action:  2
   - Copilot: 8
   - Other:   0
   - 合計:    10
 
-官网 Sitemap:
-  - Action:  3
+公式 Sitemap:
+  - Action:  2
   - Copilot: 8
-  - Other:   4
+  - Other:   5
   - 合計:    15
 ```
 
@@ -523,9 +527,8 @@ python3 scripts/verify_changelog.py --include-all
 不足している場合の例:
 
 ```
-❌ 本地缺少 5 个条目（官网有，本地没有）:
-   ⚠️ [Other  ] 2026-03-23 - push-protection-exemptions-from-repository-settings
-   ✅ [Action ] 2026-03-19 - hierarchy-view-in-github-projects-is-now-generally-available
+❌ ローカルに不足している条目: 1 件
+   ✅ [Action ] 2026-03-19 - some-missing-action-entry
    ...
 ```
 
@@ -537,6 +540,10 @@ python3 scripts/verify_changelog.py --include-all
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-18 \
   --until 2026-03-25 \
+  --use-github-ai \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
   --output CHANGELOG.md
 
 # 生成結果を検証
@@ -562,9 +569,9 @@ python3 scripts/verify_changelog.py \
 **パターン A: 完全に一致**
 
 ```
-整体状态: ✅ 一致
+判定: ✅ 一致
 
-✅ 所有条目完全一致！
+✅ すべての対象条目が一致しました。
 ```
 
 → CHANGELOG が公式サイトと完全に一致している状態。最高です。
@@ -572,27 +579,21 @@ python3 scripts/verify_changelog.py \
 **パターン B: Action/Copilot 特化（推奨）**
 
 ```
-整体状态: ⚠️ 不一致
+判定: ✅ 一致
 
-❌ 本地缺少 5 个条目（官网有，本地没有）:
-   ⚠️ [Other  ] 2026-03-23 - push-protection-exemptions-from-repository-settings
-   ⚠️ [Other  ] 2026-03-20 - a-smoother-navigation-experience-in-github-mobile-for-android
-   ...
-
-⚠️  缺少的其他类别条目: 4 (非 Action/Copilot)
-   这很正常，因为 CHANGELOG 只关注 Action 和 Copilot 相关的更新。
+✅ すべての対象条目が一致しました。
 ```
 
-→ 正常です。このプロジェクトは Action と Copilot のみを対象としているため、他のカテゴリが不足するのは意図通りです。
+→ 正常です。既定では Action と Copilot のみを比較対象にするため、対象外カテゴリは不一致扱いになりません。
 
 **パターン C: Action/Copilot の欠落（注意）**
 
 ```
-缺少的 Action/Copilot 条目: 1
+不足している Action/Copilot 条目: 1
   - Action:  1
   - Copilot: 0
 
-👉 如需更新 CHANGELOG，请重新执行生成命令。
+👉 CHANGELOG を更新する場合は再生成を実行してください。
 ```
 
 → Action または Copilot 関連の条目が漏れている。再生成を検討してください。
@@ -602,7 +603,7 @@ python3 scripts/verify_changelog.py \
 **問題: タイムアウト**
 
 ```
-Error fetching https://github.blog/changelog-sitemap4.xml: ...
+⚠️ https://github.blog/changelog-sitemap4.xml の取得に失敗しました
 ```
 
 対処:
@@ -613,7 +614,7 @@ Error fetching https://github.blog/changelog-sitemap4.xml: ...
 **問題: CHANGELOG.md が見つからない**
 
 ```
-❌ 文件不存在: CHANGELOG.md
+❌ ファイルが存在しません: CHANGELOG.md
 ```
 
 対処:
