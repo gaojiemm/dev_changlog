@@ -214,51 +214,72 @@ GitHub 上で以下を開きます。
 - `since`: 開始日 `YYYY-MM-DD`
 - `until`: 終了日 `YYYY-MM-DD`
 - `use_ai`: `true` または `false`
-- `ai_provider`: `github` / `copilot-cli` / `local`
-- `ai_model`: 例 `openai/gpt-4.1-mini`
+- `ai_provider`: `copilot-cli` / `github` / `local`
+- `ai_model`: 例 `openai/gpt-4.1-mini`（`github` プロバイダー使用時のみ）
 
 ### 5.2 GitHub Actions で推奨する設定
 
-GitHub Actions では `github` プロバイダを推奨します。
+GitHub Actions では **`copilot-cli`** プロバイダを推奨します。
 
 推奨理由:
 
-- GitHub Models API をそのまま利用できる
-- CLI バイナリ依存を避けられる
-- ランナー上の認証トラブルを減らせる
+- ローカルと同じ CLI で統一できる
+- Fine-grained PAT は必要だが、一度設定すれば再利用可能
+- Copilot の最新機能に対応しやすい
+- 更新が簡単（npm update のみ）
 
 推奨入力:
 
 - `use_ai=true`
-- `ai_provider=github`
-- `ai_model=openai/gpt-4.1-mini`
+- `ai_provider=copilot-cli`
+- `ai_model`: （指定不要）
 
 ### 5.3 Secrets の設定
 
-リポジトリの以下に設定します。
+#### 5.3.1 Fine-grained PAT の作成（推奨：Copilot CLI 用）
 
-- `Settings` → `Secrets and variables` → `Actions`
+Copilot CLI を使う場合は、Fine-grained Personal Access Token (PAT) が必要です。
 
-設定候補:
+**重要**: デフォルトの `GITHUB_TOKEN` は **Copilot API へのアクセス権がありません**。必ず Fine-grained PAT を作成してください。
 
-- `GITHUB_MODELS_TOKEN`
-- `COPILOT_GITHUB_TOKEN`
+手順:
 
-ワークフローでは `GITHUB_MODELS_TOKEN` を優先し、未設定時は `COPILOT_GITHUB_TOKEN` を代わりに使います。
+1. [GitHub PAT 作成ページ](https://github.com/settings/personal-access-tokens/new) を開く
+2. **Token name** に `copilot-actions` などわかりやすい名前をつける
+3. **Expiration** を適切に設定（90日など）
+4. **Repository access** で対象リポジトリを選択
+5. **Permissions** で以下の2つを設定:
+   - `Copilot Requests` → **Read** ✅ （必須）
+   - `Contents` → Read （任意、コードを読む場合）
+6. **Generate token** をクリックしてトークンをコピー
+
+⚠️ **注意**: Classic PAT（`ghp_` で始まるトークン）は使えません。必ず **Fine-grained PAT** を使ってください。
+
+#### 5.3.2 リポジトリに Secrets を登録
+
+作成したトークンをリポジトリの secrets に保存します:
+
+1. リポジトリの **Settings** → **Secrets and variables** → **Actions** を開く
+2. **New repository secret** をクリック
+3. **Name**: `COPILOT_GITHUB_TOKEN`
+4. **Secret**: コピーしたトークンを貼り付け
+5. **Add secret** で保存
+
+#### 5.3.3 GitHub Models トークンを使う場合
+
+`github` プロバイダを使う場合は:
+
+1. **Name**: `GITHUB_MODELS_TOKEN`
+2. **Secret**: GitHub Models のトークンを貼り付け
+
+設定後:
+
+- Copilot CLI を使う場合: `COPILOT_GITHUB_TOKEN` が使われます
+- GitHub Models を使う場合: `GITHUB_MODELS_TOKEN` が使われます
 
 ## 6. 実行例
 
-### 6.1 AI なし
-
-```bash
-python3 scripts/generate_github_changelog.py \
-  --since 2026-03-11 \
-  --until 2026-03-18 \
-  --language ja \
-  --output CHANGELOG.md
-```
-
-### 6.2 Copilot CLI あり
+### 6.1 Copilot CLI あり（推奨）
 
 ```bash
 source ~/.zprofile 2>/dev/null || true
@@ -275,7 +296,9 @@ python3 scripts/generate_github_changelog.py \
   --output CHANGELOG.md
 ```
 
-### 6.3 GitHub Models あり
+GitHub Actions では Fine-grained PAT を `COPILOT_GITHUB_TOKEN` に設定すると自動的に使われます。
+
+### 6.2 GitHub Models を使う場合
 
 ```bash
 export GITHUB_MODELS_TOKEN=YOUR_TOKEN
@@ -288,6 +311,16 @@ python3 scripts/generate_github_changelog.py \
   --ai-provider github \
   --ai-model openai/gpt-4.1-mini \
   --prompt-template prompts/changelog_weekly_ja.md \
+  --output CHANGELOG.md
+```
+
+### 6.3 AI なし
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-11 \
+  --until 2026-03-18 \
+  --language ja \
   --output CHANGELOG.md
 ```
 
@@ -370,10 +403,16 @@ copilot --prompt "OK だけ出力してください" --silent
 - ワークフローが `token missing` で失敗する
 - フォールバック文面が生成される
 
-対処:
+対処（Copilot CLI 使用時）:
+
+- `COPILOT_GITHUB_TOKEN` に Fine-grained PAT を設定する
+- PAT に `Copilot Requests: Read` 権限があるか確認
+- Classic PAT（`ghp_` で始まる）ではなく Fine-grained PAT を使う
+
+対処（GitHub Models 使用時）:
 
 - `GITHUB_MODELS_TOKEN` を設定する
-- 代替として `COPILOT_GITHUB_TOKEN` を設定する
+- トークンに `models:read` 権限があるか確認
 - `ai_provider=github` を使う
 - `ai_model=openai/gpt-4.1-mini` を使う
 
@@ -436,10 +475,14 @@ python3 scripts/generate_github_changelog.py \
 
 ## 10. 推奨運用
 
-- ローカル端末: `copilot-cli`
-- GitHub Actions: `github`
+- ローカル端末: `copilot-cli`（ローカルコマンドとの統一）
+- GitHub Actions: `copilot-cli`（同じ CLI で統一、Fine-grained PAT を設定）
 - 出力形式を変えたい場合: `prompts/changelog_weekly_ja.md` だけを編集する
 - 実行結果を確認する場合: `CHANGELOG.md` を見る
+
+**GitHub Actions の設定**:
+- Secrets: `COPILOT_GITHUB_TOKEN` に Fine-grained PAT を設定
+- ワークフロー入力: `ai_provider=copilot-cli`
 
 ## 11. 実行成功の最終確認
 
