@@ -449,3 +449,202 @@ python3 scripts/generate_github_changelog.py \
 - `説明`、`対象期間`、`Action:`、`Copilot:` が出力される
 - 日本語でまとまっている
 - `AI要約を生成できませんでした` が含まれていない
+
+## 12. 生成結果の検証 (新機能)
+
+### 12.1 概要
+
+`scripts/verify_changelog.py` は、生成した `CHANGELOG.md` が GitHub 公式サイトのデータと一致しているかを検証するスクリプトです。
+
+データソース:
+
+- GitHub 公式 Changelog Sitemap XML
+- ローカル `CHANGELOG.md`
+
+### 12.2 基本的な使い方
+
+```bash
+python3 scripts/verify_changelog.py
+```
+
+### 12.3 実行例とオプション
+
+#### 例 1: 基本的な検証
+
+```bash
+python3 scripts/verify_changelog.py
+```
+
+出力内容:
+
+- 本地 CHANGELOG.md の条目一覧（分類付き）
+- 公式 Sitemap から取得した条目一覧（分類付き）
+- 不足している条目
+- 多すぎる条目
+- 統計情報（Action/Copilot/Other の個数）
+
+#### 例 2: 特定期間を検証
+
+```bash
+python3 scripts/verify_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25
+```
+
+#### 例 3: 別の CHANGELOG ファイルを検証
+
+```bash
+python3 scripts/verify_changelog.py \
+  --changelog other_changelog.md
+```
+
+#### 例 4: すべてのカテゴリを含めて表示
+
+```bash
+python3 scripts/verify_changelog.py --include-all
+```
+
+通常は `Action` と `Copilot` のみ対象ですが、この オプションで Security、Mobile などの行も表示します。
+
+### 12.4 出力の見方
+
+**色分け表示:**
+
+- `✅ [Action ]` - Action に該当する条目
+- `✅ [Copilot]` - Copilot に該当する条目
+- `⚠️ [Other ]` - Action/Copilot 以外の条目
+
+**統計情報:**
+
+```
+本地 CHANGELOG.md:
+  - Action:  2
+  - Copilot: 8
+  - Other:   0
+  - 合計:    10
+
+官网 Sitemap:
+  - Action:  3
+  - Copilot: 8
+  - Other:   4
+  - 合計:    15
+```
+
+**対比分析:**
+
+- `✅ 一致` - CHANGELOG と公式サイトの条目がすべて同じ
+- `⚠️ 不一致` - 不足している条目がある
+
+不足している場合の例:
+
+```
+❌ 本地缺少 5 个条目（官网有，本地没有）:
+   ⚠️ [Other  ] 2026-03-23 - push-protection-exemptions-from-repository-settings
+   ✅ [Action ] 2026-03-19 - hierarchy-view-in-github-projects-is-now-generally-available
+   ...
+```
+
+### 12.5 使用シーン
+
+**シーン 1: CHANGELOG 生成後の品質確認**
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25 \
+  --language ja \
+  --output CHANGELOG.md
+
+# 生成結果を検証
+python3 scripts/verify_changelog.py
+```
+
+**シーン 2: 過去のデータを追跡**
+
+CHANGELOG がカバーしているべき期間の条目が本当に全部含まれているか確認:
+
+```bash
+python3 scripts/verify_changelog.py \
+  --since 2026-02-01 \
+  --until 2026-02-28
+```
+
+**シーン 3: 定期実行の品質チェック**
+
+毎週実行後に自動でこのスクリプトを呼び出し、不足がないかを確認する。
+
+### 12.6 想定される出力パターン
+
+**パターン A: 完全に一致**
+
+```
+整体状态: ✅ 一致
+
+✅ 所有条目完全一致！
+```
+
+→ CHANGELOG が公式サイトと完全に一致している状態。最高です。
+
+**パターン B: Action/Copilot 特化（推奨）**
+
+```
+整体状态: ⚠️ 不一致
+
+❌ 本地缺少 5 个条目（官网有，本地没有）:
+   ⚠️ [Other  ] 2026-03-23 - push-protection-exemptions-from-repository-settings
+   ⚠️ [Other  ] 2026-03-20 - a-smoother-navigation-experience-in-github-mobile-for-android
+   ...
+
+⚠️  缺少的其他类别条目: 4 (非 Action/Copilot)
+   这很正常，因为 CHANGELOG 只关注 Action 和 Copilot 相关的更新。
+```
+
+→ 正常です。このプロジェクトは Action と Copilot のみを対象としているため、他のカテゴリが不足するのは意図通りです。
+
+**パターン C: Action/Copilot の欠落（注意）**
+
+```
+缺少的 Action/Copilot 条目: 1
+  - Action:  1
+  - Copilot: 0
+
+👉 如需更新 CHANGELOG，请重新执行生成命令。
+```
+
+→ Action または Copilot 関連の条目が漏れている。再生成を検討してください。
+
+### 12.7 トラブルシューティング
+
+**問題: タイムアウト**
+
+```
+Error fetching https://github.blog/changelog-sitemap4.xml: ...
+```
+
+対処:
+
+- ネットワーク接続を確認
+- 数秒待てて再実行
+
+**問題: CHANGELOG.md が見つからない**
+
+```
+❌ 文件不存在: CHANGELOG.md
+```
+
+対処:
+
+```bash
+# 正しいパスを指定
+python3 scripts/verify_changelog.py --changelog /full/path/to/CHANGELOG.md
+```
+
+**問題: 日付範囲が自動抽出されない**
+
+CHANGELOG.md に `対象期間：YYYY/MM/DD～YYYY/MM/DD` の形式がない場合、明示的に指定:
+
+```bash
+python3 scripts/verify_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25
+```
