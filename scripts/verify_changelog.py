@@ -74,17 +74,25 @@ def fetch_from_sitemaps(since=None, until=None):
 
 def get_label_category(slug):
     """根据条目的 slug 判断分类"""
-    action_keywords = ['action', 'runner', 'workflow', 'oidc', 'reusable', 'artifact', 'arc']
-    copilot_keywords = ['copilot', 'copilot-cli', 'coding-agent', 'gpt', 'ai-models', 'gemini']
-    
+    action_keywords = {'action', 'actions', 'runner', 'workflow', 'oidc', 'reusable', 'artifact', 'arc'}
+    copilot_keywords = {'copilot', 'gpt', 'gemini'}
+
     slug_lower = slug.lower()
-    
-    if any(keyword in slug_lower for keyword in action_keywords):
+    tokens = set(slug_lower.split('-'))
+
+    if tokens & action_keywords:
         return 'Action'
-    elif any(keyword in slug_lower for keyword in copilot_keywords):
+    elif tokens & copilot_keywords or 'copilot' in slug_lower:
         return 'Copilot'
     else:
         return 'Other'
+
+
+def filter_target_entries(entries, include_all=False):
+    """按验证范围过滤条目，默认仅保留 Action/Copilot"""
+    if include_all:
+        return entries
+    return [entry for entry in entries if get_label_category(entry[1]) in ['Action', 'Copilot']]
 
 def main():
     import argparse
@@ -158,8 +166,11 @@ def main():
     print("📋 对比分析")
     print("=" * 70 + "\n")
     
-    local_set = set(local_entries)
-    official_set = set(official_entries)
+    comparison_local_entries = filter_target_entries(local_entries, args.include_all)
+    comparison_official_entries = filter_target_entries(official_entries, args.include_all)
+
+    local_set = set(comparison_local_entries)
+    official_set = set(comparison_official_entries)
     
     missing = official_set - local_set
     extra = local_set - official_set

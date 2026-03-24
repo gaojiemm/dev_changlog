@@ -1,7 +1,7 @@
 {
   "metadata": {
     "description": "Cache for GitHub Changelog entries that are missing from RSS feed",
-    "last_updated": "2026-03-22T13:59:33.086871+00:00Z",
+    "last_updated": "2026-03-24T12:31:36.124183+00:00Z",
     "format_version": 1
   },
   "entries": {
@@ -218,6 +218,107 @@
         ],
         "summary": "",
         "published_jst": "2026-01-01T00:00:00+09:00"
+      }
+    ],
+    "2026-03-18_2026-03-25": [
+      {
+        "date": "2026-03-18",
+        "title": "Gpt 5 3 Codex Long Term Support In Github Copilot",
+        "link": "https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-18T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-18",
+        "title": "Configure Copilot Coding Agents Validation Tools",
+        "link": "https://github.blog/changelog/2026-03-18-configure-copilot-coding-agents-validation-tools",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-18T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-19",
+        "title": "Copilot Coding Agent Now Starts Work 50 Faster",
+        "link": "https://github.blog/changelog/2026-03-19-copilot-coding-agent-now-starts-work-50-faster",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-19T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-19",
+        "title": "Github Actions Late March 2026 Updates",
+        "link": "https://github.blog/changelog/2026-03-19-github-actions-late-march-2026-updates",
+        "changelog_type": "Release",
+        "labels": [
+          "Actions"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-19T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-19",
+        "title": "Actions Runner Controller Release 0 14 0",
+        "link": "https://github.blog/changelog/2026-03-19-actions-runner-controller-release-0-14-0",
+        "changelog_type": "Release",
+        "labels": [
+          "Actions"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-19T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-19",
+        "title": "More Visibility Into Copilot Coding Agent Sessions",
+        "link": "https://github.blog/changelog/2026-03-19-more-visibility-into-copilot-coding-agent-sessions",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-19T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-20",
+        "title": "Monitor Copilot Coding Agent Logs Live In Raycast",
+        "link": "https://github.blog/changelog/2026-03-20-monitor-copilot-coding-agent-logs-live-in-raycast",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-20T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-20",
+        "title": "Trace Any Copilot Coding Agent Commit To Its Session Logs",
+        "link": "https://github.blog/changelog/2026-03-20-trace-any-copilot-coding-agent-commit-to-its-session-logs",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-20T00:00:00+09:00"
+      },
+      {
+        "date": "2026-03-20",
+        "title": "Copilot Usage Metrics Now Resolve Auto Model Selection To Actual Models",
+        "link": "https://github.blog/changelog/2026-03-20-copilot-usage-metrics-now-resolve-auto-model-selection-to-actual-models",
+        "changelog_type": "Release",
+        "labels": [
+          "Copilot"
+        ],
+        "summary": "",
+        "published_jst": "2026-03-20T00:00:00+09:00"
       }
     ]
   }

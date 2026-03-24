@@ -343,8 +343,11 @@ def check_and_fill_missing_entries(entries: list[Entry], since: date, until: dat
         entries.extend(cached_entries)
         entries = merge_entries_by_link(entries)
     
-    # Layer 3: Try official page if still not enough
-    if len(entries) < 5:  # Arbitrary threshold
+    # Layer 3: Try official page when RSS coverage likely does not reach the
+    # requested start date. The feed often contains only the most recent posts,
+    # so a week can be incomplete even when the entry count is relatively high.
+    needs_official_fill = not entries or min(entry.post_date for entry in entries) > since
+    if needs_official_fill:
         print(f"[data] Fetching from official page...", file=sys.stderr)
         web_entries = fetch_from_official_page(since, until)
         if web_entries:
