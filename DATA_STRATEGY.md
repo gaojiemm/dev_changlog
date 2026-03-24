@@ -1,57 +1,57 @@
-# 数据获取三层策略
+# データ取得の3層戦略
 
-## 问题
-RSS 源只保留最近的条目（约 10-30 条），较早期间的数据会轮转掉，导致无法查询历史数据。
+## 問題
+RSS フィードは最近のエントリーのみを保持（約 10-30 件）し、古い期間のデータはロールアウトされるため、履歴データをクエリできません。
 
-## 解决方案：三层顺序加载
+## 解決方法：3層の順序ロード
 
 ```
-查询请求 (日期范围)
+クエリリクエスト（日付範囲）
   ↓
-第1层: RSS 源（快速，最新）
-  → 0 条～N 条数据（取决于时间推移）
+第1層: RSS フィード（高速、最新）
+  → 0 件～N 件のデータ（時間経過に依存）
   ↓
-第2层: 本地缓存 (cache.json)
-  → 快速补充历史数据
+第2層: ローカルキャッシュ (cache.json)
+  → 履歴データを高速に補充
   ↓
-第3层: 官方网页爬取 (GitHub Changelog 网页)
-  → 完整获取，自动更新缓存
+第3層: 公式ウェブページスクレイピング (GitHub Changelog ウェブ)
+  → 完全取得、キャッシュを自動更新
   ↓
-最后备选: KNOWN_MISSING_ENTRIES（硬编码）
-  → 仅当上层都失败时使用
+最終備選: KNOWN_MISSING_ENTRIES（ハードコード）
+  → 上位レイヤーすべてが失敗した場合のみ使用
 ```
 
-## 工作流程
+## ワークフロー
 
-### 1. RSS 获取（最快）
+### 1. RSS 取得（最速）
 ```python
 entries = parse_feed(fetch_feed(FEED_URL))
-# 通常返回最近 10-20 条
+# 通常、最新の 10-20 件を返す
 ```
 
-### 2. 缓存补充（秒级）
+### 2. キャッシュ補充（秒級）
 ```python
-cache = load_cache()  # 读取 cache.json
+cache = load_cache()  # cache.json を読み込み
 cached = get_cached_entries(since, until)
-entries.extend(cached)  # 补充历史数据
+entries.extend(cached)  # 履歴データを補充
 ```
 
-### 3. 网页爬取（可选）
-如果数据仍然不足（< 5 条），则：
+### 3. ウェブページスクレイピング（オプション）
+データがまだ不足している場合（< 5 件）：
 ```python
 web_entries = fetch_from_official_page(since, until)
 entries.extend(web_entries)
-save_cache(cache)  # 自动更新缓存，下次使用
+save_cache(cache)  # キャッシュを自動更新、次回使用時に使用
 ```
 
-### 4. 备选（极端情况）
+### 4. 備選（極端な場合）
 ```python
-entries = add_known_missing_entries(entries)  # 硬编码列表
+entries = add_known_missing_entries(entries)  # ハードコードリスト
 ```
 
-## 文件说明
+## ファイル説明
 
-### `cache.json` - 缓存文件
+### `cache.json` - キャッシュファイル
 ```json
 {
   "metadata": {
@@ -65,22 +65,22 @@ entries = add_known_missing_entries(entries)  # 硬编码列表
 }
 ```
 
-**特点**:
-- 按日期范围组织（键 = "开始日期_结束日期"）
-- 自动保存新抓取的网页数据
-- 跨执行保留，无需手动维护
+**特徴**:
+- 日付範囲で整理（キー = "開始日_終了日"）
+- 新しくスクレイピングしたウェブデータを自動保存
+- 実行成功後も保持、手動メンテナンスは不要
 
-### `scripts/generate_github_changelog.py` - 主脚本
-**新增函数**:
-- `load_cache()` - 读取缓存
-- `save_cache()` - 保存缓存
-- `get_cached_entries()` - 从缓存获取特定日期范围的数据
-- `fetch_from_official_page()` - 爬取官方网页
-- `check_and_fill_missing_entries()` - 执行三层策略
+### `scripts/generate_github_changelog.py` - メインスクリプト
+**新規関数**:
+- `load_cache()` - キャッシュを読み込み
+- `save_cache()` - キャッシュを保存
+- `get_cached_entries()` - キャッシュから特定の日付範囲のデータを取得
+- `fetch_from_official_page()` - 公式ウェブページをスクレイピング
+- `check_and_fill_missing_entries()` - 3層戦略を実行
 
-## 使用示例
+## 使用例
 
-### 查询最近一周（正常情况，使用 RSS）
+### 最近1週間をクエリ（通常ケース、RSS を使用）
 ```bash
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-16 \
@@ -90,12 +90,12 @@ python3 scripts/generate_github_changelog.py \
   --ai-provider copilot-cli \
   --output CHANGELOG.md
 ```
-**预期输出**: 
+**予期される出力**: 
 ```
 [data] RSS provided 10 entries
 ```
 
-### 查询过去的某个周（自动从缓存恢复）
+### 過去のある週をクエリ（キャッシュから自動復元）
 ```bash
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
@@ -103,13 +103,13 @@ python3 scripts/generate_github_changelog.py \
   --language ja \
   --output CHANGELOG.md
 ```
-**预期输出**:
+**予期される出力**:
 ```
 [data] RSS provided 0 entries
 [data] Cache has 13 entries
 ```
 
-### 查询全新期间（自动从网页获取并缓存）
+### 新しい期間をクエリ（ウェブから自動取得およびキャッシュ）
 ```bash
 python3 scripts/generate_github_changelog.py \
   --since 2026-02-15 \
@@ -117,43 +117,43 @@ python3 scripts/generate_github_changelog.py \
   --language ja \
   --output CHANGELOG.md
 ```
-**预期输出**:
+**予期される出力**:
 ```
 [data] RSS provided 0 entries
 [data] Fetching from official page...
 [data] Official page provided 8 entries
 ```
-后续查询同一范围时：
+同じ範囲への後続クエリ：
 ```
 [data] RSS provided 0 entries
 [data] Cache has 8 entries
 ```
 
-## 优势
+## メリット
 
-| 问题 | 旧方案 | 新方案 |
+| 問題 | 旧方法 | 新方法 |
 |------|--------|--------|
-| RSS 过期数据 | ❌ 无法查询 | ✅ 缓存自动补充 |
-| 手动维护 | ⚠️ 需手编 KNOWN_MISSING_ENTRIES | ✅ 自动更新缓存 |
-| 查询速度 | ~ | ✅ 缓存秒级响应 |
-| 数据完整性 | ⚠️ 总是不完整 | ✅ 网页爬取保证完整 |
-| 维护成本 | ⚠️ 高 | ✅ 极低 |
+| RSS 期限切れデータ | ❌ クエリ不可 | ✅ キャッシュが自動補充 |
+| 手動メンテナンス | ⚠️ KNOWN_MISSING_ENTRIES が必要 | ✅ キャッシュを自動更新 |
+| クエリ速度 | ~ | ✅ キャッシュは秒級レスポンス |
+| データ完全性 | ⚠️ 常に不完全 | ✅ ウェブスクレイピングが完全性を保証 |
+| メンテナンスコスト | ⚠️ 高い | ✅ 極めて低い |
 
-## 局限和未来改进
+## 制限事項と今後の改善
 
-1. **当前**: 网页爬取仅用正则（简单但可靠）
-2. **未来**: 可切换到 BeautifulSoup 做更复杂的 HTML 解析
-3. **当前**: 缓存 key 为 "开始_结束"，固定范围
-4. **未来**: 可改为时间戳范围，支持跨范围查询
+1. **現在**: ウェブスクレイピングは正規表現のみ（シンプルだが信頼性がある）
+2. **将来**: BeautifulSoup に切り替え、より複雑な HTML パースが可能
+3. **現在**: キャッシュキーは "開始_終了"、固定範囲
+4. **将来**: タイムスタンプ範囲に変更、クロスレンジクエリをサポート可能
 
-## 调试
+## デバッグ
 
-查看执行日志：
+実行ログを確認：
 ```bash
 python3 scripts/generate_github_changelog.py ... 2>&1 | grep "\[data\]"
 ```
 
-清除缓存重新开始：
+キャッシュをクリアして再開始：
 ```bash
 rm cache.json
 ```
