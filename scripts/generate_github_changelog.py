@@ -60,7 +60,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--since", required=False, help="Start date in YYYY-MM-DD (JST)")
     parser.add_argument("--until", required=False, help="End date in YYYY-MM-DD (JST)")
     parser.add_argument("--output", required=True, help="Output markdown file path")
-    parser.add_argument("--language", choices=["ja", "en"], default="ja")
     parser.add_argument("--use-github-ai", action="store_true")
     parser.add_argument(
         "--copilot-cli-command",
@@ -425,10 +424,7 @@ def build_ai_prompt(template: str, entries: list[Entry], since: date, until: dat
 
 
 def summarize_in_japanese_with_copilot_cli(command: str, prompt: str) -> str | None:
-    if "{prompt}" in command:
-        cmd = command.replace("{prompt}", shlex.quote(prompt))
-    else:
-        cmd = f"{command} --prompt {shlex.quote(prompt)}"
+    cmd = f"{command} --prompt {shlex.quote(prompt)}"
 
     try:
         result = subprocess.run(
@@ -509,42 +505,6 @@ def render_markdown_ja(
     return render_ai_unavailable_markdown(entries, since, until, "GitHub Copilot CLI の認証または実行に失敗しました")
 
 
-def render_markdown(entries: list[Entry], since: date, until: date) -> str:
-    lines = [
-        "# GitHub Changelog Summary",
-        "",
-        f"Window: {since.isoformat()} to {until.isoformat()} (JST)",
-        f"Entries: {len(entries)}",
-        "",
-    ]
-
-    if not entries:
-        lines.append("No GitHub Changelog posts were found in the requested date window.")
-        lines.append("")
-        lines.append(f"Source: {FEED_URL}")
-        return "\n".join(lines) + "\n"
-
-    grouped: dict[date, list[Entry]] = defaultdict(list)
-    for entry in entries:
-        grouped[entry.post_date].append(entry)
-
-    for day in sorted(grouped.keys(), reverse=True):
-        lines.append(f"## {day.isoformat()}")
-        lines.append("")
-        for entry in grouped[day]:
-            meta_parts = [entry.changelog_type]
-            if entry.labels:
-                meta_parts.append(", ".join(entry.labels))
-            meta = " | ".join(meta_parts)
-            lines.append(f"- {meta}: [{entry.title}]({entry.link})")
-            if entry.summary:
-                lines.append(f"  {entry.summary}")
-        lines.append("")
-
-    lines.append(f"Source: {FEED_URL}")
-    return "\n".join(lines) + "\n"
-
-
 def main() -> int:
     args = parse_args()
     today = jst_today()
@@ -568,17 +528,14 @@ def main() -> int:
     # Apply three-layer strategy: RSS → cache → official page
     entries = check_and_fill_missing_entries(entries, since, until)
     
-    if args.language == "ja":
-        markdown = render_markdown_ja(
-            entries,
-            since,
-            until,
-            use_ai=args.use_github_ai,
-            copilot_cli_command=args.copilot_cli_command,
-            prompt_template_path=args.prompt_template,
-        )
-    else:
-        markdown = render_markdown(entries, since, until)
+    markdown = render_markdown_ja(
+        entries,
+        since,
+        until,
+        use_ai=args.use_github_ai,
+        copilot_cli_command=args.copilot_cli_command,
+        prompt_template_path=args.prompt_template,
+    )
 
     with open(args.output, "w", encoding="utf-8") as output_file:
         output_file.write(markdown)

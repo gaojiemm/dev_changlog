@@ -66,7 +66,6 @@ python3 --version
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --output CHANGELOG.md
 ```
 
@@ -140,7 +139,6 @@ copilot --prompt "OK だけ出力してください" --silent
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
@@ -235,7 +233,6 @@ export PATH="$HOME/.local/bin:$PATH"
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
@@ -250,7 +247,6 @@ GitHub Actions では Fine-grained PAT を `COPILOT_GITHUB_TOKEN` に設定す�
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --output CHANGELOG.md
 ```
 
@@ -360,7 +356,6 @@ copilot --prompt "OK だけ出力してください" --silent
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --output CHANGELOG.md
 ```
 
@@ -383,7 +378,6 @@ copilot --prompt "OK だけ出力してください" --silent
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --use-github-ai \
   --copilot-cli-command "copilot --silent" \
   --prompt-template prompts/changelog_weekly_ja.md \
@@ -512,7 +506,6 @@ python3 scripts/verify_changelog.py --include-all
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-18 \
   --until 2026-03-25 \
-  --language ja \
   --output CHANGELOG.md
 
 # 生成結果を検証

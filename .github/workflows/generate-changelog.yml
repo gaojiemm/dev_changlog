@@ -82,7 +82,6 @@ jobs:
           ARGS=(
             --since "${{ steps.dates.outputs.since }}"
             --until "${{ steps.dates.outputs.until }}"
-            --language ja
             --prompt-template prompts/changelog_weekly_ja.md
             --output CHANGELOG.md
           )
@@ -107,7 +106,7 @@ jobs:
         run: cat CHANGELOG.md
 
       - name: Upload changelog artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: changelog-${{ steps.dates.outputs.since }}_${{ steps.dates.outputs.until }}
           path: CHANGELOG.md
