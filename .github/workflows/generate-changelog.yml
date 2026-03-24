@@ -12,17 +12,9 @@ on:
         required: false
         default: ""
       use_ai:
-        description: "Use AI to generate Japanese summary."
+        description: "Use AI to generate Japanese summary via Copilot CLI."
         required: false
         default: "true"
-      ai_provider:
-        description: "AI provider: github | copilot-cli | local"
-        required: false
-        default: "github"
-      ai_model:
-        description: "Model ID for github/local providers."
-        required: false
-        default: "openai/gpt-4.1-mini"
   schedule:
     # Every Sunday at 00:00 JST (= Sunday 15:00 UTC)
     - cron: "0 15 * * 0"
@@ -35,10 +27,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
@@ -65,8 +57,8 @@ jobs:
           echo "until=$UNTIL" >> $GITHUB_OUTPUT
           echo "GitHub Changelog summary window: $SINCE → $UNTIL (JST)"
 
-      - name: Install Copilot CLI (if needed)
-        if: ${{ github.event.inputs.ai_provider == 'copilot-cli' || (github.event.inputs.ai_provider == '' && github.event_name == 'schedule') }}
+      - name: Install Copilot CLI (if AI enabled)
+        if: ${{ github.event.inputs.use_ai != 'false' }}
         run: |
           npm install -g @github/copilot
           copilot --version
@@ -75,27 +67,15 @@ jobs:
         env:
           # Copilot CLI 認証トークン（Fine-grained PAT）
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-          # GitHub Models トークン（バックアップ）
-          GITHUB_MODELS_TOKEN: ${{ secrets.GITHUB_MODELS_TOKEN }}
         run: |
           set -euo pipefail
 
           USE_AI="${{ github.event.inputs.use_ai || 'true' }}"
-          AI_PROVIDER="${{ github.event.inputs.ai_provider || 'copilot-cli' }}"
-          AI_MODEL="${{ github.event.inputs.ai_model || 'openai/gpt-4.1-mini' }}"
 
           echo "use_ai=$USE_AI"
-          echo "ai_provider=$AI_PROVIDER"
-          echo "ai_model=$AI_MODEL"
-
-          if [ "$USE_AI" = "true" ] && [ "$AI_PROVIDER" = "copilot-cli" ] && [ -z "${COPILOT_GITHUB_TOKEN:-}" ]; then
-            echo "ERROR: AI provider is copilot-cli, but COPILOT_GITHUB_TOKEN is missing." >&2
+          if [ "$USE_AI" = "true" ] && [ -z "${COPILOT_GITHUB_TOKEN:-}" ]; then
+            echo "ERROR: COPILOT_GITHUB_TOKEN is missing." >&2
             echo "Required: Create Fine-grained PAT with 'Copilot Requests: Read' permission." >&2
-            exit 1
-          fi
-
-          if [ "$USE_AI" = "true" ] && [ "$AI_PROVIDER" = "github" ] && [ -z "${GITHUB_MODELS_TOKEN:-}" ]; then
-            echo "ERROR: AI provider is github, but GITHUB_MODELS_TOKEN is missing." >&2
             exit 1
           fi
 
@@ -110,27 +90,16 @@ jobs:
           if [ "$USE_AI" = "true" ]; then
             ARGS+=(
               --use-github-ai
-              --ai-provider "$AI_PROVIDER"
+              --copilot-cli-command "copilot --silent"
             )
-            
-            if [ "$AI_PROVIDER" = "copilot-cli" ]; then
-              ARGS+=(--copilot-cli-command "copilot --silent")
-            else
-              ARGS+=(--ai-model "$AI_MODEL")
-            fi
           fi
 
           python3 scripts/generate_github_changelog.py "${ARGS[@]}"
 
           if [ "$USE_AI" = "true" ] && grep -q "AI要約を生成できませんでした" CHANGELOG.md; then
             echo "ERROR: AI summarization failed and fallback content was generated." >&2
-            if [ "$AI_PROVIDER" = "copilot-cli" ]; then
-              echo "Hint: verify COPILOT_GITHUB_TOKEN exists and has 'Copilot Requests: Read' permission." >&2
-              echo "Hint: ensure Copilot CLI is installed: npm install -g @github/copilot" >&2
-            else
-              echo "Hint: verify GITHUB_MODELS_TOKEN and ensure token has models:read permission." >&2
-              echo "Hint: verify model id is available for your account, e.g. openai/gpt-4.1-mini." >&2
-            fi
+            echo "Hint: verify COPILOT_GITHUB_TOKEN exists and has 'Copilot Requests: Read' permission." >&2
+            echo "Hint: ensure Copilot CLI is installed: npm install -g @github/copilot" >&2
             exit 1
           fi
 

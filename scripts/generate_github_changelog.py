@@ -8,7 +8,6 @@ import re
 import shlex
 import subprocess
 import sys
-import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections import defaultdict
@@ -19,7 +18,6 @@ from html.parser import HTMLParser
 
 
 FEED_URL = "https://github.blog/changelog/feed/"
-OFFICIAL_PAGE_URL = "https://github.blog/changelog/?label=actions%2Ccopilot&opened-months=12"
 SITEMAP_URLS = [
     "https://github.blog/changelog-sitemap4.xml",  # Most recent (2025-05~)
     "https://github.blog/changelog-sitemap.xml",
@@ -27,127 +25,7 @@ SITEMAP_URLS = [
     "https://github.blog/changelog-sitemap2.xml",
 ]
 CACHE_FILE = "cache.json"
-MODELS_API_URL = "https://models.github.ai/inference/chat/completions"
-MODELS_CATALOG_URL = "https://models.github.ai/catalog/models"
-LOCAL_AI_DEFAULT_URL = "http://127.0.0.1:11434/v1/chat/completions"
 DEFAULT_PROMPT_TEMPLATE_PATH = "prompts/changelog_weekly_ja.md"
-GITHUB_MODEL_FALLBACKS = [
-    "openai/gpt-4.1-mini",
-    "openai/gpt-4.1",
-    "microsoft/phi-4-mini-instruct",
-    "meta/llama-3.3-70b-instruct",
-]
-
-# Known entries missing from RSS feed but present on official GitHub Changelog page
-KNOWN_MISSING_ENTRIES = [
-    # Action entries
-    {
-        "date": "2026-03-13",
-        "title": "Self-hosted runner minimum version enforcement paused",
-        "link": "https://github.blog/changelog/2026-03-13-self-hosted-runner-minimum-version-enforcement-paused",
-        "changelog_type": "Release",
-        "labels": ["Actions"],
-        "summary": "Self-hosted runner minimum version enforcement has been paused.",
-    },
-    {
-        "date": "2026-03-12",
-        "title": "Actions OIDC tokens now support repository custom properties",
-        "link": "https://github.blog/changelog/2026-03-12-actions-oidc-tokens-now-support-repository-custom-properties",
-        "changelog_type": "Release",
-        "labels": ["Actions"],
-        "summary": "GitHub Actions OIDC tokens now support repository custom properties.",
-    },
-    # Copilot entries
-    {
-        "date": "2026-03-13",
-        "title": "Optionally skip approval for Copilot coding agent Actions workflows",
-        "link": "https://github.blog/changelog/2026-03-13-optionally-skip-approval-for-copilot-coding-agent-actions-workflows",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Optionally skip approval for Copilot coding agent Actions workflows.",
-    },
-    {
-        "date": "2026-03-13",
-        "title": "Updates to GitHub Copilot for students",
-        "link": "https://github.blog/changelog/2026-03-13-updates-to-github-copilot-for-students",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Updates to GitHub Copilot for students have been released.",
-    },
-    {
-        "date": "2026-03-12",
-        "title": "Copilot auto model selection is generally available in JetBrains IDEs",
-        "link": "https://github.blog/changelog/2026-03-12-copilot-auto-model-selection-is-generally-available-in-jetbrains-ides",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Copilot auto model selection is now generally available in JetBrains IDEs.",
-    },
-    {
-        "date": "2026-03-11",
-        "title": "Request Copilot code review from GitHub CLI",
-        "link": "https://github.blog/changelog/2026-03-11-request-copilot-code-review-from-github-cli",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Request Copilot code review directly from GitHub CLI.",
-    },
-    {
-        "date": "2026-03-11",
-        "title": "Major agentic capabilities improvements in GitHub Copilot for JetBrains IDEs",
-        "link": "https://github.blog/changelog/2026-03-11-major-agentic-capabilities-improvements-in-github-copilot-for-jetbrains-ides",
-        "changelog_type": "Improvement",
-        "labels": ["Copilot"],
-        "summary": "GitHub Copilot for JetBrains IDEs received major improvements to agentic capabilities.",
-    },
-    {
-        "date": "2026-03-11",
-        "title": "Explore a repository using Copilot on the web",
-        "link": "https://github.blog/changelog/2026-03-11-explore-a-repository-using-copilot-on-the-web",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "GitHub Copilot now allows exploring repositories using Copilot on the web.",
-    },
-    # Additional Copilot entries (2026-03-17 and 2026-03-18)
-    {
-        "date": "2026-03-17",
-        "title": "Copilot coding agent works faster with semantic code search",
-        "link": "https://github.blog/changelog/2026-03-17-copilot-coding-agent-works-faster-with-semantic-code-search",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Copilot coding agent now works faster with semantic code search capabilities.",
-    },
-    {
-        "date": "2026-03-17",
-        "title": "Copilot usage metrics now includes organization level GitHub Copilot CLI activity",
-        "link": "https://github.blog/changelog/2026-03-17-copilot-usage-metrics-now-includes-organization-level-github-copilot-cli-activity",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Copilot usage metrics now include organization level GitHub Copilot CLI activity.",
-    },
-    {
-        "date": "2026-03-17",
-        "title": "GPT-5.4 mini is now generally available for GitHub Copilot",
-        "link": "https://github.blog/changelog/2026-03-17-gpt-5-4-mini-is-now-generally-available-for-github-copilot",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "GPT-5.4 mini model is now generally available for GitHub Copilot.",
-    },
-    {
-        "date": "2026-03-18",
-        "title": "Configure Copilot coding agents validation tools",
-        "link": "https://github.blog/changelog/2026-03-18-configure-copilot-coding-agents-validation-tools",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "Configure validation tools for Copilot coding agents.",
-    },
-    {
-        "date": "2026-03-18",
-        "title": "GPT-5.3 Codex Long-Term Support in GitHub Copilot",
-        "link": "https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot",
-        "changelog_type": "Release",
-        "labels": ["Copilot"],
-        "summary": "GPT-5.3 Codex model now has long-term support in GitHub Copilot.",
-    },
-]
 
 
 class _HTMLTextExtractor(HTMLParser):
@@ -184,10 +62,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", required=True, help="Output markdown file path")
     parser.add_argument("--language", choices=["ja", "en"], default="ja")
     parser.add_argument("--use-github-ai", action="store_true")
-    parser.add_argument("--ai-model", default="openai/gpt-5-mini")
-    parser.add_argument("--ai-provider", choices=["github", "local", "copilot-cli"], default="github")
-    parser.add_argument("--local-ai-url", default=LOCAL_AI_DEFAULT_URL)
-    parser.add_argument("--local-ai-api-key", default="")
     parser.add_argument(
         "--copilot-cli-command",
         default=os.environ.get("COPILOT_CLI_COMMAND", "copilot"),
@@ -504,29 +378,6 @@ def check_and_fill_missing_entries(entries: list[Entry], since: date, until: dat
     return entries
 
 
-def add_known_missing_entries(entries: list[Entry], since: date, until: date) -> list[Entry]:
-    """Add known entries missing from RSS feed but present on official GitHub Changelog page."""
-    for known in KNOWN_MISSING_ENTRIES:
-        entry_date = datetime.strptime(known["date"], "%Y-%m-%d").date()
-        if since <= entry_date <= until:
-            # Create Entry object for known missing item
-            known_entry = Entry(
-                title=known["title"],
-                link=known["link"],
-                post_date=entry_date,
-                published_jst=datetime.combine(entry_date, datetime.min.time()).replace(
-                    tzinfo=datetime.strptime("+0900", "%z").tzinfo
-                ),
-                changelog_type=known["changelog_type"],
-                labels=known["labels"],
-                summary=known["summary"],
-            )
-            entries.append(known_entry)
-    # Re-sort after adding known entries
-    entries.sort(key=lambda entry: (entry.post_date, entry.published_jst), reverse=True)
-    return entries
-
-
 def type_to_ja(value: str) -> str:
     mapping = {
         "Release": "リリース",
@@ -537,12 +388,6 @@ def type_to_ja(value: str) -> str:
         "Update": "更新",
     }
     return mapping.get(value, value)
-
-
-def labels_to_ja(labels: list[str]) -> str:
-    if not labels:
-        return "なし"
-    return "、".join(labels)
 
 
 def load_prompt_template(path: str) -> str:
@@ -577,158 +422,6 @@ def build_weekly_source(entries: list[Entry], since: date, until: date) -> str:
 def build_ai_prompt(template: str, entries: list[Entry], since: date, until: date) -> str:
     source = build_weekly_source(entries, since, until)
     return template.replace("{{weekly_source}}", source)
-
-
-def summarize_in_japanese_with_github_ai(
-    token: str,
-    model: str,
-    prompt: str,
-) -> str | None:
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "あなたはGitHub製品更新の編集者です。入力全体を分析し、日本語のみで指定フォーマットに従って出力します。",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        "temperature": 0.2,
-        "max_tokens": 2000,
-    }
-
-    request = urllib.request.Request(
-        MODELS_API_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "github-changelog-workflow/1.0",
-        },
-        method="POST",
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=45) as response:
-            body = response.read()
-    except urllib.error.HTTPError as exc:
-        body_err = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
-        print(f"[github-ai] HTTP {exc.code}: {body_err[:300]}", file=sys.stderr)
-        return None
-    except urllib.error.URLError as exc:
-        print(f"[github-ai] URLError: {exc.reason}", file=sys.stderr)
-        return None
-
-    try:
-        parsed = json.loads(body.decode("utf-8"))
-        content = (
-            parsed.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
-        )
-        if not content:
-            print(f"[github-ai] Empty response body: {body.decode('utf-8', errors='replace')[:300]}", file=sys.stderr)
-        return content or None
-    except (ValueError, KeyError, IndexError, TypeError) as exc:
-        print(f"[github-ai] Parse error: {exc}", file=sys.stderr)
-        return None
-
-
-def fetch_available_github_models(token: str) -> set[str] | None:
-    request = urllib.request.Request(
-        MODELS_CATALOG_URL,
-        headers={
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "User-Agent": "github-changelog-workflow/1.0",
-        },
-        method="GET",
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            body = response.read()
-    except (urllib.error.HTTPError, urllib.error.URLError) as exc:
-        print(f"[github-ai] Unable to load model catalog: {exc}", file=sys.stderr)
-        return None
-
-    try:
-        parsed = json.loads(body.decode("utf-8"))
-    except ValueError:
-        return None
-
-    if not isinstance(parsed, list):
-        return None
-
-    model_ids: set[str] = set()
-    for item in parsed:
-        if isinstance(item, dict):
-            model_id = item.get("id")
-            if isinstance(model_id, str) and model_id:
-                model_ids.add(model_id)
-    return model_ids or None
-
-
-def summarize_in_japanese_with_local_ai(
-    endpoint_url: str,
-    model: str,
-    api_key: str,
-    prompt: str,
-) -> str | None:
-    payload = {
-        "model": model,
-        "messages": [
-            {
-                "role": "system",
-                "content": "あなたはGitHub製品更新の編集者です。入力全体を分析し、日本語のみで指定フォーマットに従って出力します。",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
-        ],
-        "temperature": 0.2,
-        "max_tokens": 2000,
-    }
-
-    headers = {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-        "User-Agent": "github-changelog-workflow/1.0",
-    }
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    request = urllib.request.Request(
-        endpoint_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers=headers,
-        method="POST",
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=45) as response:
-            body = response.read()
-    except (urllib.error.HTTPError, urllib.error.URLError):
-        return None
-
-    try:
-        parsed = json.loads(body.decode("utf-8"))
-        return (
-            parsed.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
-            or None
-        )
-    except (ValueError, KeyError, IndexError, TypeError):
-        return None
 
 
 def summarize_in_japanese_with_copilot_cli(command: str, prompt: str) -> str | None:
@@ -798,64 +491,22 @@ def render_markdown_ja(
     since: date,
     until: date,
     use_ai: bool,
-    ai_provider: str,
-    ai_model: str,
-    ai_token: str | None,
-    local_ai_url: str,
-    local_ai_api_key: str,
     copilot_cli_command: str,
     prompt_template_path: str,
 ) -> str:
-    ai_enabled = False
-    if use_ai and ai_provider == "github":
-        ai_enabled = bool(ai_token)
-    elif use_ai and ai_provider == "local":
-        ai_enabled = True
-    elif use_ai and ai_provider == "copilot-cli":
-        ai_enabled = True
-
     if not entries:
         return "# GitHub Changelog 週間要約\n\n指定期間内の GitHub Changelog 記事は見つかりませんでした。\n\n情報源: https://github.blog/changelog/feed/\n"
 
     if not use_ai:
         return render_ai_unavailable_markdown(entries, since, until, "AI要約が無効です")
 
-    if ai_provider == "github" and not ai_token:
-        print("[github-ai] No token found. Set GITHUB_MODELS_TOKEN or COPILOT_GITHUB_TOKEN.", file=sys.stderr)
-        return render_ai_unavailable_markdown(entries, since, until, "GITHUB_MODELS_TOKEN が未設定です")
-
     template = load_prompt_template(prompt_template_path)
     prompt = build_ai_prompt(template, entries, since, until)
-
-    generated = None
-    if ai_provider == "github":
-        candidate_models = [ai_model] + [m for m in GITHUB_MODEL_FALLBACKS if m != ai_model]
-        available_models = fetch_available_github_models(ai_token or "")
-        if available_models is not None:
-            filtered = [m for m in candidate_models if m in available_models]
-            if filtered:
-                candidate_models = filtered
-            else:
-                print("[github-ai] None of preferred models are listed in catalog for this token.", file=sys.stderr)
-        for candidate_model in candidate_models:
-            if candidate_model != ai_model:
-                print(f"[github-ai] Retrying with fallback model: {candidate_model}", file=sys.stderr)
-            generated = summarize_in_japanese_with_github_ai(ai_token or "", candidate_model, prompt)
-            if generated:
-                break
-    elif ai_provider == "local":
-        generated = summarize_in_japanese_with_local_ai(local_ai_url, ai_model, local_ai_api_key, prompt)
-    else:
-        generated = summarize_in_japanese_with_copilot_cli(copilot_cli_command, prompt)
+    generated = summarize_in_japanese_with_copilot_cli(copilot_cli_command, prompt)
 
     if generated:
         return generated.rstrip() + "\n"
-
-    if ai_provider == "copilot-cli":
-        return render_ai_unavailable_markdown(entries, since, until, "GitHub Copilot CLI の認証または実行に失敗しました")
-    if ai_provider == "local":
-        return render_ai_unavailable_markdown(entries, since, until, "ローカルAIエンドポイントへの接続に失敗しました")
-    return render_ai_unavailable_markdown(entries, since, until, "GitHub Models で要約を生成できませんでした（token の models:read 権限または model access を確認してください）")
+    return render_ai_unavailable_markdown(entries, since, until, "GitHub Copilot CLI の認証または実行に失敗しました")
 
 
 def render_markdown(entries: list[Entry], since: date, until: date) -> str:
@@ -917,28 +568,12 @@ def main() -> int:
     # Apply three-layer strategy: RSS → cache → official page
     entries = check_and_fill_missing_entries(entries, since, until)
     
-    # Fallback: Add known missing entries if somehow still empty
-    if len(entries) == 0:
-        print("[data] Falling back to KNOWN_MISSING_ENTRIES", file=sys.stderr)
-        entries = add_known_missing_entries(entries, since, until)
-    else:
-        # Ensure no critical entries are missing by checking against known list
-        entries = add_known_missing_entries(entries, since, until)
-    
-    # GITHUB_MODELS_TOKEN を優先し、未設定の場合は COPILOT_GITHUB_TOKEN を代わりに使う
-    ai_token = os.environ.get("GITHUB_MODELS_TOKEN") or os.environ.get("COPILOT_GITHUB_TOKEN")
-
     if args.language == "ja":
         markdown = render_markdown_ja(
             entries,
             since,
             until,
             use_ai=args.use_github_ai,
-            ai_provider=args.ai_provider,
-            ai_model=args.ai_model,
-            ai_token=ai_token,
-            local_ai_url=args.local_ai_url,
-            local_ai_api_key=args.local_ai_api_key,
             copilot_cli_command=args.copilot_cli_command,
             prompt_template_path=args.prompt_template,
         )

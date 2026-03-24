@@ -16,9 +16,6 @@ RSS フィードは最近のエントリーのみを保持（約 10-30 件）し
   ↓
 第3層: 公式ウェブページスクレイピング (GitHub Changelog ウェブ)
   → 完全取得、キャッシュを自動更新
-  ↓
-最終備選: KNOWN_MISSING_ENTRIES（ハードコード）
-  → 上位レイヤーすべてが失敗した場合のみ使用
 ```
 
 ## ワークフロー
@@ -42,11 +39,6 @@ entries.extend(cached)  # 履歴データを補充
 web_entries = fetch_from_official_page(since, until)
 entries.extend(web_entries)
 save_cache(cache)  # キャッシュを自動更新、次回使用時に使用
-```
-
-### 4. 備選（極端な場合）
-```python
-entries = add_known_missing_entries(entries)  # ハードコードリスト
 ```
 
 ## ファイル説明
@@ -87,7 +79,6 @@ python3 scripts/generate_github_changelog.py \
   --until 2026-03-22 \
   --language ja \
   --use-github-ai \
-  --ai-provider copilot-cli \
   --output CHANGELOG.md
 ```
 **予期される出力**: 
@@ -134,7 +125,7 @@ python3 scripts/generate_github_changelog.py \
 | 問題 | 旧方法 | 新方法 |
 |------|--------|--------|
 | RSS 期限切れデータ | ❌ クエリ不可 | ✅ キャッシュが自動補充 |
-| 手動メンテナンス | ⚠️ KNOWN_MISSING_ENTRIES が必要 | ✅ キャッシュを自動更新 |
+| 手動メンテナンス | ⚠️ 手動補完が必要 | ✅ キャッシュを自動更新 |
 | クエリ速度 | ~ | ✅ キャッシュは秒級レスポンス |
 | データ完全性 | ⚠️ 常に不完全 | ✅ ウェブスクレイピングが完全性を保証 |
 | メンテナンスコスト | ⚠️ 高い | ✅ 極めて低い |
