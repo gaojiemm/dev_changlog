@@ -171,6 +171,10 @@ GitHub 上で以下を開きます。
 
 - `Actions` → `Changelog 週次生成` → `Run workflow`
 
+定期実行:
+
+- 毎週水曜 09:00 JST に自動実行されます
+
 入力値:
 
 - `since`: 開始日 `YYYY-MM-DD`
