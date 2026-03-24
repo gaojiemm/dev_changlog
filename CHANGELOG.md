@@ -1,147 +1,114 @@
 説明
-この週は、GitHub Actionsでは認証連携とランナー運用に関する更新があり、GitHub Copilotではモデル提供、CLI・Web・JetBrains・coding agent 周辺の機能拡張が続きました。
+この週は、GitHub Actions で運用設定と ARC 機能が拡充され、Copilot では対応モデル、管理可視化、コーディングエージェントの運用性が継続的に強化された。
 
-対象期間：2026/03/11～2026/03/18
+対象期間：2026/03/18～2026/03/25
 
 Action:
 
-- タイトル： OIDCトークンでリポジトリのカスタムプロパティを利用可能に
+- タイトル： GitHub Actions の 2026年3月後半アップデート
 - 内容
-	- 認証連携
-		- GitHub Actions の OIDC トークンが、リポジトリのカスタムプロパティに対応しました。
-		- OIDC を使った外部連携時に、リポジトリ属性を認証情報に含められるようになりました。
-		- リポジトリごとの属性を前提にした認可条件を組み込みやすくなりました。
-		- 外部クラウドや認証基盤と連携する運用で、属性ベースの制御を行いやすくなります。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-12-actions-oidc-tokens-now-support-repository-custom-properties
+	- ワークフロー運用改善
+		- スケジュール実行でタイムゾーンを指定できるようになった
+		- 自動デプロイを伴わない環境の利用に対応した
+		- 細かな運用上の不便を解消する改善が含まれている
+		- 定期実行や環境管理の柔軟性が高まり、実運用での設定負荷を下げやすくなった
+- 情報元： 🔗 https://github.blog/changelog/2026-03-19-github-actions-late-march-2026-updates
 
-- タイトル： 自己ホストランナーの最低バージョン強制を一時停止
+- タイトル： Actions Runner Controller 0.14.0 の一般提供開始
 - 内容
-	- ランナー運用
-		- 自己ホストランナーに対する最低バージョンの強制適用が一時停止されました。
-		- 直近で最低バージョンへ合わせる前提が外れ、既存環境を維持しやすくなりました。
-		- ランナー更新のタイミングを見直すための猶予が生まれました。
-		- 運用負荷は一時的に下がりますが、継続的なバージョン管理自体は引き続き必要です。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-13-self-hosted-runner-minimum-version-enforcement-paused
+	- ARC 機能拡張
+		- runner scale sets で複数ラベルの利用に対応した
+		- actions/scaleset ライブラリクライアントへ移行した
+		- リソースのカスタマイズ設定と listener pod のスケジューリング改善が追加された
+		- セルフホストランナーの拡張性と運用調整のしやすさが向上した
+- 情報元： 🔗 https://github.blog/changelog/2026-03-19-actions-runner-controller-release-0-14-0
 
 Copilot:
 
-- タイトル： GPT-5.3 Codex を長期サポート対象として提供
+- タイトル： Gemini 3.1 Pro が主要 IDE 向けにプレビュー提供開始
 - 内容
 	- 変更点
-		- GitHub Copilot で GPT-5.3 Codex が長期サポート対象になりました。
-		- 継続利用を前提に選びやすいモデルとして位置付けられました。
-		- モデル運用時に、安定利用を重視する選択肢が増えました。
+		- Gemini 3.1 Pro が JetBrains IDEs、Xcode、Eclipse で利用可能になった
+		- 提供形態はパブリックプレビューである
+		- Copilot Enterprise、Copilot Business、Copilot Pro、Copilot Pro+ が対象となる
 	- 変更がない点
-		- 他モデルの提供終了や置き換えについては、この告知では案内されていません。
-		- Copilot の基本的な利用方法全体を変更する告知ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot
+		- 対象として案内されている Copilot の各プラン区分はそのまま維持されている
+		- GitHub Copilot の提供枠内で追加モデルとして扱われている点は変わらない
+- 情報元： 🔗 https://github.blog/changelog/2026-03-23-gemini-3-1-pro-is-now-available-in-jetbrains-ides-xcode-and-eclipse
 
-- タイトル： Copilot coding agent の検証ツールを設定可能に
+- タイトル： Copilot 利用状況メトリクスで実際の使用モデルを確認可能に
 - 内容
 	- 変更点
-		- Copilot coding agent 向けに、検証ツールを設定できるようになりました。
-		- エージェントの検証工程で使うツールを運用に合わせて調整できます。
-		- コーディングエージェント利用時の確認手順を構成しやすくなりました。
+		- 自動モデル選択を有効にした場合でも、利用状況メトリクスで実際のモデル名を確認できるようになった
+		- これまで汎用的な「Auto」表記だった活動が実モデル名に解決表示される
+		- 管理者がチームのモデル利用状況をより正確に把握できるようになった
 	- 変更がない点
-		- coding agent 自体の提供終了や基本機能の廃止は案内されていません。
-		- 他の Copilot 製品全体の仕様変更をまとめて行う告知ではありません。
+		- 自動モデル選択の利用自体は継続できる
+		- 管理者向けの利用状況把握というメトリクスの役割は維持されている
+- 情報元： 🔗 https://github.blog/changelog/2026-03-20-copilot-usage-metrics-now-resolve-auto-model-selection-to-actual-models
+
+- タイトル： Copilot コーディングエージェントのコミット追跡性を強化
+- 内容
+	- 変更点
+		- Copilot コーディングエージェントが作成した各コミットをセッションログにたどれるようになった
+		- コミット作成者は Copilot として記録される
+		- タスクを依頼した人は共同作成者として記録され、生成元の把握がしやすくなった
+	- 変更がない点
+		- コーディングエージェントがバックグラウンドで作業する仕組み自体は変わらない
+		- 人がレビューする運用前提は維持されている
+- 情報元： 🔗 https://github.blog/changelog/2026-03-20-trace-any-copilot-coding-agent-commit-to-its-session-logs
+
+- タイトル： Raycast から Copilot コーディングエージェントのログをライブ監視可能に
+- 内容
+	- 変更点
+		- Raycast 上で Copilot コーディングエージェントのログをライブで確認できるようになった
+		- バックグラウンド実行中の状況確認がしやすくなった
+		- Raycast 利用者にとって作業導線の中で確認しやすい連携が追加された
+	- 変更がない点
+		- Copilot コーディングエージェントがバックグラウンドで動作する点は変わらない
+		- ログ確認の対象がエージェントのセッションである点は維持されている
+- 情報元： 🔗 https://github.blog/changelog/2026-03-20-monitor-copilot-coding-agent-logs-live-in-raycast
+
+- タイトル： Copilot コーディングエージェントのセッション可視性を向上
+- 内容
+	- 変更点
+		- タスクを委任した後の Copilot コーディングエージェントのセッションログを確認しやすくなった
+		- エージェントが処理中に何を行ったかを把握できる
+		- レビュー前に作業内容を確認するための透明性が高まった
+	- 変更がない点
+		- タスク委任後にエージェントがバックグラウンドで作業する流れは維持されている
+		- 作業後にレビューを求める運用は変わらない
+- 情報元： 🔗 https://github.blog/changelog/2026-03-19-more-visibility-into-copilot-coding-agent-sessions
+
+- タイトル： Copilot コーディングエージェントの作業開始を高速化
+- 内容
+	- 変更点
+		- Copilot コーディングエージェントの作業開始速度が 50% 改善された
+		- タスク委任から実作業着手までの待ち時間が短縮された
+		- 背景処理を使う開発フローの応答性が向上した
+	- 変更がない点
+		- 対象は Copilot コーディングエージェントである点は変わらない
+		- 機能追加ではなく既存エージェントの性能改善である
+- 情報元： 🔗 https://github.blog/changelog/2026-03-19-copilot-coding-agent-now-starts-work-50-faster
+
+- タイトル： Copilot コーディングエージェントの検証ツール設定に対応
+- 内容
+	- 変更点
+		- Copilot コーディングエージェント向けに検証ツールを設定できるようになった
+		- エージェント実行時の検証手段を利用者側で定義しやすくなった
+		- コード変更後の確認フローを運用に合わせて整えやすくなった
+	- 変更がない点
+		- 対象機能は Copilot コーディングエージェントのままである
+		- エージェントを用いたコード作業の基本的な利用形態は維持されている
 - 情報元： 🔗 https://github.blog/changelog/2026-03-18-configure-copilot-coding-agents-validation-tools
 
-- タイトル： GPT-5.4 mini を一般提供開始
+- タイトル： GPT-5.3 Codex が GitHub Copilot で長期サポート化
 - 内容
 	- 変更点
-		- GitHub Copilot で GPT-5.4 mini が一般提供になりました。
-		- プレビュー段階ではなく、正式利用できるモデルとして扱われます。
-		- Copilot で利用可能なモデルの選択肢が広がりました。
+		- GPT-5.3 Codex が GitHub Copilot で長期サポート対象になった
+		- 利用モデルの継続性を重視した選択肢として扱いやすくなった
+		- モデル運用の安定性を求める利用者向けの位置付けが明確になった
 	- 変更がない点
-		- 既存モデルの廃止や強制切替については、この告知では示されていません。
-		- Copilot の基本操作や利用導線全体を変更する内容ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-17-gpt-5-4-mini-is-now-generally-available-for-github-copilot
-
-- タイトル： 組織レベルの利用指標に Copilot CLI 活動を追加
-- 内容
-	- 変更点
-		- Copilot の利用指標に、組織レベルの GitHub Copilot CLI 活動が含まれるようになりました。
-		- 管理者が CLI 利用状況を組織単位で把握しやすくなりました。
-		- 利用実績の可視化対象が広がりました。
-	- 変更がない点
-		- GitHub Copilot CLI 自体の利用方法変更を主題とする告知ではありません。
-		- 既存の他指標の廃止については、この告知では案内されていません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-17-copilot-usage-metrics-now-includes-organization-level-github-copilot-cli-activity
-
-- タイトル： semantic code search により coding agent を高速化
-- 内容
-	- 変更点
-		- Copilot coding agent が semantic code search により、より速く動作するようになりました。
-		- コード探索や理解に関わる処理性能の改善が示されています。
-		- coding agent 利用時の作業効率向上が期待できます。
-	- 変更がない点
-		- 利用条件や料金体系の変更については、この告知では触れられていません。
-		- coding agent 以外の Copilot 機能全体を変更する内容ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-17-copilot-coding-agent-works-faster-with-semantic-code-search
-
-- タイトル： 学生向け GitHub Copilot の提供内容を更新
-- 内容
-	- 変更点
-		- 学生向け GitHub Copilot に関する更新がリリースされました。
-		- 変更対象が学生向け提供であることが明示されました。
-		- 学生利用者向けの運用内容が最新化されました。
-	- 変更がない点
-		- 一般向け Copilot 全体の仕様変更を主題とする告知ではありません。
-		- 他カテゴリ製品の変更は、この告知の対象ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-13-updates-to-github-copilot-for-students
-
-- タイトル： coding agent の Actions ワークフローで承認スキップを任意設定化
-- 内容
-	- 変更点
-		- Copilot coding agent の Actions ワークフローで、承認を任意でスキップできるようになりました。
-		- ワークフロー承認の要否を設定で選べるようになりました。
-		- 承認待ちを前提としない運用を組みやすくなりました。
-	- 変更がない点
-		- GitHub Actions 全体の承認仕様を一律変更する告知ではありません。
-		- coding agent 自体の提供有無や基本利用方法の全面変更は案内されていません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-13-optionally-skip-approval-for-copilot-coding-agent-actions-workflows
-
-- タイトル： JetBrains IDEs で自動モデル選択を一般提供開始
-- 内容
-	- 変更点
-		- Copilot の自動モデル選択機能が JetBrains IDEs で一般提供になりました。
-		- JetBrains 利用者が IDE 上で正式機能として自動選択を使えるようになりました。
-		- モデル選択を手動で都度判断する負荷を下げやすくなりました。
-	- 変更がない点
-		- 手動でのモデル選択が廃止されるとは、この告知では示されていません。
-		- JetBrains 以外の IDE 全般の変更をまとめて告知する内容ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-12-copilot-auto-model-selection-is-generally-available-in-jetbrains-ides
-
-- タイトル： GitHub CLI から Copilot コードレビューを直接依頼可能に
-- 内容
-	- 変更点
-		- GitHub CLI から Copilot のコードレビューを直接依頼できるようになりました。
-		- ターミナル中心の開発フローに、レビュー依頼の導線が追加されました。
-		- Web 画面を介さずに Copilot レビューを呼び出せるようになりました。
-	- 変更がない点
-		- 既存の他画面や他経路でのレビュー依頼が廃止されるとは案内されていません。
-		- CLI 全体の基本操作体系を変更する告知ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-11-request-copilot-code-review-from-github-cli
-
-- タイトル： JetBrains IDEs 向けのエージェント機能を大幅改善
-- 内容
-	- 変更点
-		- GitHub Copilot for JetBrains IDEs の agentic capabilities が大きく改善されました。
-		- 改善対象が JetBrains IDEs 向け機能であることが明示されました。
-		- JetBrains 環境でのエージェント利用体験の強化が進みました。
-	- 変更がない点
-		- 他 IDE 全体の仕様変更を一括で行う告知ではありません。
-		- JetBrains 向け Copilot の提供終了や縮小を示す内容ではありません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-11-major-agentic-capabilities-improvements-in-github-copilot-for-jetbrains-ides
-
-- タイトル： Web 上の Copilot でリポジトリ探索が可能に
-- 内容
-	- 変更点
-		- GitHub Copilot を使って、Web 上でリポジトリを探索できるようになりました。
-		- ブラウザ上でリポジトリ理解を進めるための導線が追加されました。
-		- Copilot の利用場面が Web での探索作業まで広がりました。
-	- 変更がない点
-		- ローカル開発環境や IDE での利用が不要になるという告知ではありません。
-		- 他の Copilot 機能全般の置き換えや廃止は案内されていません。
-- 情報元： 🔗 https://github.blog/changelog/2026-03-11-explore-a-repository-using-copilot-on-the-web
+		- 対象は引き続き GitHub Copilot 内のモデル提供である
+		- GPT-5.3 Codex 自体が Copilot で利用できる前提は維持されている
+- 情報元： 🔗 https://github.blog/changelog/2026-03-18-gpt-5-3-codex-long-term-support-in-github-copilot
