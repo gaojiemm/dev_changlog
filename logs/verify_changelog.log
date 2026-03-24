@@ -1,0 +1,71 @@
+⏳ 公式 Sitemap からデータを取得しています...
+
+======================================================================
+📊 CHANGELOG 一致性検証レポート
+======================================================================
+
+📅 検証期間: 2026-03-18 ~ 2026-03-25
+
+📋 ローカル CHANGELOG.md: 0 件
+
+🌐 公式 Sitemap: 15 件
+   ⚠️ [Other  ] 2026-03-23 - push-protection-exemptions-from-repository-settings
+   ✅ [Copilot] 2026-03-23 - gemini-3-1-pro-is-now-available-in-jetbrains-ides-xcode-and-eclipse
+   ✅ [Copilot] 2026-03-20 - trace-any-copilot-coding-agent-commit-to-its-session-logs
+   ✅ [Copilot] 2026-03-20 - monitor-copilot-coding-agent-logs-live-in-raycast
+   ✅ [Copilot] 2026-03-20 - copilot-usage-metrics-now-resolve-auto-model-selection-to-actual-models
+   ⚠️ [Other  ] 2026-03-20 - a-smoother-navigation-experience-in-github-mobile-for-android
+   ⚠️ [Other  ] 2026-03-19 - view-code-and-comments-side-by-side-in-pull-request-files-changed-page
+   ✅ [Copilot] 2026-03-19 - more-visibility-into-copilot-coding-agent-sessions
+   ⚠️ [Other  ] 2026-03-19 - hierarchy-view-in-github-projects-is-now-generally-available
+   ✅ [Action ] 2026-03-19 - github-actions-late-march-2026-updates
+   ✅ [Copilot] 2026-03-19 - copilot-coding-agent-now-starts-work-50-faster
+   ⚠️ [Other  ] 2026-03-19 - codespaces-with-data-residency-now-available-in-japan
+   ✅ [Action ] 2026-03-19 - actions-runner-controller-release-0-14-0
+   ✅ [Copilot] 2026-03-18 - gpt-5-3-codex-long-term-support-in-github-copilot
+   ✅ [Copilot] 2026-03-18 - configure-copilot-coding-agents-validation-tools
+
+======================================================================
+📋 差分比較
+======================================================================
+
+判定: ⚠️ 不一致
+
+❌ ローカルに不足している条目: 10 件
+   ✅ [Copilot] 2026-03-23 - gemini-3-1-pro-is-now-available-in-jetbrains-ides-xcode-and-eclipse
+   ✅ [Copilot] 2026-03-20 - trace-any-copilot-coding-agent-commit-to-its-session-logs
+   ✅ [Copilot] 2026-03-20 - monitor-copilot-coding-agent-logs-live-in-raycast
+   ✅ [Copilot] 2026-03-20 - copilot-usage-metrics-now-resolve-auto-model-selection-to-actual-models
+   ✅ [Copilot] 2026-03-19 - more-visibility-into-copilot-coding-agent-sessions
+   ✅ [Action ] 2026-03-19 - github-actions-late-march-2026-updates
+   ✅ [Copilot] 2026-03-19 - copilot-coding-agent-now-starts-work-50-faster
+   ✅ [Action ] 2026-03-19 - actions-runner-controller-release-0-14-0
+   ✅ [Copilot] 2026-03-18 - gpt-5-3-codex-long-term-support-in-github-copilot
+   ✅ [Copilot] 2026-03-18 - configure-copilot-coding-agents-validation-tools
+
+======================================================================
+📈 集計
+======================================================================
+
+ローカル CHANGELOG.md:
+  - Action:  0
+  - Copilot: 0
+  - Other:   0
+  - 合計:    0
+
+公式 Sitemap:
+  - Action:  2
+  - Copilot: 8
+  - Other:   5
+  - 合計:    15
+
+======================================================================
+💡 補足
+======================================================================
+
+不足している Action/Copilot 条目: 10
+  - Action:  2
+  - Copilot: 8
+
+👉 CHANGELOG を更新する場合は再生成を実行してください。
+

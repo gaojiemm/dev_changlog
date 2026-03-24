@@ -3,6 +3,55 @@
 このファイルは、このリポジトリを別の環境でも再現できるようにするための手順書です。
 macOS、Linux、GitHub Actions を前提に、セットアップ手順、実行コマンド、AI の有効化確認、よくある失敗の対処をまとめています。
 
+## 0. フロー図
+
+### 0.1 全体の処理フロー
+
+```mermaid
+flowchart TD
+  A[開始] --> B[RSS 取得]
+  B --> C[対象期間で抽出]
+  C --> D[Action / Copilot のみ残す]
+  D --> E[キャッシュ補完]
+  E --> F{開始日まで届いているか}
+  F -- いいえ --> G[公式 Sitemap で不足分補完]
+  F -- はい --> H[AI で本文生成]
+  G --> H
+  H --> I{形式検証に通るか}
+  I -- いいえ --> J[レビュー用プロンプトで再矯正]
+  I -- はい --> K[CHANGELOG.md 出力]
+  J --> K
+  K --> L[verify_changelog.py で検証]
+  L --> M[ログ保存]
+```
+
+### 0.2 GitHub Actions 実行フロー
+
+```mermaid
+flowchart TD
+  A[Schedule / Manual Run] --> B[Checkout repository]
+  B --> C[Set up Python]
+  C --> D[Compute date range]
+  D --> E[Install Copilot CLI]
+  E --> F[Generate changelog]
+  F --> G[logs/generate_changelog.log 保存]
+  G --> H[Verify generated changelog]
+  H --> I[logs/verify_changelog.log 保存]
+  I --> J[Workflow summary に検証結果を表示]
+  J --> K[CHANGELOG.md とログを artifact 保存]
+```
+
+### 0.3 将来の Slack 通知フロー
+
+```mermaid
+flowchart TD
+  A[CHANGELOG.md 生成完了] --> B[検証成功]
+  B --> C[Slack 通知用メッセージ整形]
+  C --> D[Slack Webhook または Bot Token へ送信]
+  D --> E[チャンネルに changelog を通知]
+  E --> F[失敗時はログへ記録]
+```
+
 ## 1. このリポジトリでやっていること
 
 - GitHub Changelog の RSS を取得する
@@ -185,8 +234,8 @@ GitHub 上で以下を開きます。
 
 - 生成内容に `AI要約を生成できませんでした` が含まれる場合は失敗します
 - `scripts/verify_changelog.py` で Action / Copilot の対象記事が揃っているか確認します
-- Workflow summary には `verify_result.txt` の検証結果だけを表示します
-- 検証に通った `CHANGELOG.md` と `verify_result.txt` を成果物として保存します
+- Workflow summary には `logs/verify_changelog.log` の検証結果だけを表示します
+- 検証に通った `CHANGELOG.md`、`logs/generate_changelog.log`、`logs/verify_changelog.log` を成果物として保存します
 
 ### 5.2 GitHub Actions で推奨する設定
 
@@ -286,6 +335,12 @@ python3 scripts/generate_github_changelog.py \
 - `CHANGELOG.md` が生成される
 - `Action:` と `Copilot:` が出力される
 - `AI要約を生成できませんでした` が出ていない
+
+### 7.4 ログ確認
+
+- `logs/generate_changelog.log` に生成処理のログが出力される
+- `logs/verify_changelog.log` に検証処理のログが出力される
+- GitHub Actions でも同じログが artifact に含まれる
 
 ## 8. よくある問題と対処
 
@@ -429,6 +484,7 @@ python3 scripts/generate_github_changelog.py \
 - GitHub Actions: `copilot-cli`（同じ CLI で統一、Fine-grained PAT を設定）
 - 出力形式を変えたい場合: `prompts/changelog_weekly_ja.md` だけを編集する
 - 実行結果を確認する場合: `CHANGELOG.md` を見る
+- 詳細ログを確認する場合: `logs/generate_changelog.log` と `logs/verify_changelog.log` を見る
 
 **GitHub Actions の設定**:
 - Secrets: `COPILOT_GITHUB_TOKEN` に Fine-grained PAT を設定
@@ -453,6 +509,7 @@ python3 scripts/generate_github_changelog.py \
 
 - GitHub 公式 Changelog Sitemap XML
 - ローカル `CHANGELOG.md`
+- ローカル `logs/verify_changelog.log`
 
 ### 12.2 基本的な使い方
 
@@ -568,7 +625,46 @@ python3 scripts/verify_changelog.py \
 
 毎週実行後に自動でこのスクリプトを呼び出し、不足がないかを確認する。
 
-### 12.6 想定される出力パターン
+### 12.6 ログ出力
+
+このリポジトリでは、生成処理と検証処理のログを `logs/` 配下に保存します。
+
+これらのファイルは、ローカル実行または GitHub Actions 実行後に生成されます。
+
+- `logs/generate_changelog.log`: `scripts/generate_github_changelog.py` の実行ログ
+- `logs/verify_changelog.log`: `scripts/verify_changelog.py` の実行ログ
+
+ローカル実行例:
+
+```bash
+mkdir -p logs
+
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25 \
+  --use-github-ai \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
+  --output CHANGELOG.md 2>&1 | tee logs/generate_changelog.log
+
+python3 scripts/verify_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25 2>&1 | tee logs/verify_changelog.log
+```
+
+### 12.7 今後の拡張
+
+今後は Slack 連携を追加し、検証に成功した `CHANGELOG.md` の本文を Slack チャンネルへ通知できるようにする予定です。
+
+想定方針:
+
+- GitHub Actions 実行後に Slack 通知ステップを追加する
+- 通知本文には `CHANGELOG.md` の要約結果をそのまま使う
+- 送信方法は Slack Incoming Webhook または Slack Bot Token を想定する
+- 通知失敗時は `logs/` 配下または Workflow summary にエラーを残す
+
+### 12.8 想定される出力パターン
 
 **パターン A: 完全に一致**
 
@@ -602,7 +698,7 @@ python3 scripts/verify_changelog.py \
 
 → Action または Copilot 関連の条目が漏れている。再生成を検討してください。
 
-### 12.7 トラブルシューティング
+### 12.9 トラブルシューティング
 
 **問題: タイムアウト**
 
