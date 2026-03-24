@@ -26,6 +26,9 @@ SITEMAP_URLS = [
 ]
 CACHE_FILE = "cache.json"
 DEFAULT_PROMPT_TEMPLATE_PATH = "prompts/changelog_weekly_ja.md"
+DEFAULT_CORRECTION_PROMPT_TEMPLATE_PATH = "prompts/changelog_weekly_ja_review.md"
+ACTION_KEYWORDS = {"action", "actions", "runner", "workflow", "oidc", "reusable", "artifact", "arc"}
+COPILOT_KEYWORDS = {"copilot", "gpt", "gemini"}
 
 
 class _HTMLTextExtractor(HTMLParser):
@@ -55,21 +58,26 @@ class Entry:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate a weekly summary from the GitHub Changelog RSS feed."
+        description="GitHub Changelog の週次サマリーを生成します。"
     )
-    parser.add_argument("--since", required=False, help="Start date in YYYY-MM-DD (JST)")
-    parser.add_argument("--until", required=False, help="End date in YYYY-MM-DD (JST)")
-    parser.add_argument("--output", required=True, help="Output markdown file path")
+    parser.add_argument("--since", required=False, help="開始日。形式は YYYY-MM-DD です。")
+    parser.add_argument("--until", required=False, help="終了日。形式は YYYY-MM-DD です。")
+    parser.add_argument("--output", required=True, help="出力先の Markdown ファイルパスです。")
     parser.add_argument("--use-github-ai", action="store_true")
     parser.add_argument(
         "--copilot-cli-command",
         default=os.environ.get("COPILOT_CLI_COMMAND", "copilot"),
-        help="Command used for Copilot CLI mode. Prompt is piped to stdin.",
+        help="Copilot CLI の実行コマンドです。プロンプトを渡して実行します。",
     )
     parser.add_argument(
         "--prompt-template",
         default=DEFAULT_PROMPT_TEMPLATE_PATH,
-        help="Path to the prompt template file used for whole-document Japanese summarization.",
+        help="一次生成に使う日本語プロンプトテンプレートのパスです。",
+    )
+    parser.add_argument(
+        "--correction-prompt-template",
+        default=DEFAULT_CORRECTION_PROMPT_TEMPLATE_PATH,
+        help="生成結果の矯正に使う日本語プロンプトテンプレートのパスです。",
     )
     return parser.parse_args()
 
@@ -131,6 +139,33 @@ def extract_post_date(link: str) -> date | None:
     if not match:
         return None
     return datetime.strptime(match.group(1), "%Y-%m-%d").date()
+
+
+def classify_slug(slug: str) -> str:
+    slug_lower = slug.lower()
+    tokens = set(slug_lower.split("-"))
+    if tokens & ACTION_KEYWORDS:
+        return "Action"
+    if tokens & COPILOT_KEYWORDS or "copilot" in slug_lower:
+        return "Copilot"
+    return "Other"
+
+
+def classify_entry(entry: Entry) -> str:
+    normalized_labels = {label.lower() for label in entry.labels}
+    if "actions" in normalized_labels or "action" in normalized_labels:
+        return "Action"
+    if "copilot" in normalized_labels:
+        return "Copilot"
+
+    slug = entry.link.rstrip("/").rsplit("/", 1)[-1]
+    if "-" in slug:
+        slug = slug.split("-", 3)[-1] if re.match(r"\d{4}-\d{2}-\d{2}-", slug) else slug
+    return classify_slug(slug)
+
+
+def filter_target_entries(entries: list[Entry]) -> list[Entry]:
+    return [entry for entry in entries if classify_entry(entry) in {"Action", "Copilot"}]
 
 
 def parse_feed(xml_bytes: bytes) -> list[Entry]:
@@ -253,16 +288,12 @@ def fetch_from_official_page(since: date, until: date) -> list[Entry]:
     entries = []
     seen_links: set[str] = set()
     
-    # Labels that indicate Actions or Copilot from URL slug
-    ACTION_KEYWORDS = {"action", "runner", "workflow", "oidc", "reusable", "artifact"}
-    COPILOT_KEYWORDS = {"copilot", "copilot-cli", "coding-agent", "gpt", "ai-models"}
-    
     def slug_to_labels(slug: str) -> list[str]:
-        slug_lower = slug.lower()
         labels = []
-        if any(k in slug_lower for k in ACTION_KEYWORDS):
+        category = classify_slug(slug)
+        if category == "Action":
             labels.append("Actions")
-        if any(k in slug_lower for k in COPILOT_KEYWORDS):
+        if category == "Copilot":
             labels.append("Copilot")
         return labels
     
@@ -426,6 +457,80 @@ def build_ai_prompt(template: str, entries: list[Entry], since: date, until: dat
     return template.replace("{{weekly_source}}", source)
 
 
+def format_target_period(since: date, until: date) -> str:
+    return f"対象期間：{since.strftime('%Y/%m/%d')}～{until.strftime('%Y/%m/%d')}"
+
+
+def normalize_generated_markdown(markdown: str, since: date, until: date) -> str:
+    normalized = markdown.replace("\r\n", "\n").strip()
+    normalized = re.sub(
+        r"対象期間[:：]\s*\[(\d{4}[/-]\d{2}[/-]\d{2})\]\s*[～~〜-]\s*\[(\d{4}[/-]\d{2}[/-]\d{2})\]",
+        lambda match: f"対象期間：{match.group(1).replace('-', '/')}～{match.group(2).replace('-', '/')}",
+        normalized,
+    )
+    normalized = re.sub(
+        r"対象期間[:：]\s*(\d{4}[/-]\d{2}[/-]\d{2})\s*[～~〜-]\s*(\d{4}[/-]\d{2}[/-]\d{2})",
+        lambda match: f"対象期間：{match.group(1).replace('-', '/')}～{match.group(2).replace('-', '/')}",
+        normalized,
+    )
+    normalized = normalized.replace("\ufeff", "")
+    if "対象期間：" in normalized:
+        normalized = re.sub(
+            r"対象期間[:：].*",
+            format_target_period(since, until),
+            normalized,
+            count=1,
+        )
+    return normalized + "\n"
+
+
+def validate_generated_markdown(markdown: str, entries: list[Entry], since: date, until: date) -> list[str]:
+    errors: list[str] = []
+    body = markdown.strip()
+
+    if not body.startswith("説明\n"):
+        errors.append("先頭が『説明』行になっていません。")
+    if format_target_period(since, until) not in body:
+        errors.append("対象期間の行が指定形式と一致していません。")
+    if "\nAction:\n" not in f"\n{body}\n":
+        errors.append("Action: セクションがありません。")
+    if "\nCopilot:\n" not in f"\n{body}\n":
+        errors.append("Copilot: セクションがありません。")
+    if re.search(r"(^|\n)#+\s", body):
+        errors.append("大きな見出し記号が含まれています。")
+    if "{{weekly_source}}" in body:
+        errors.append("テンプレートのプレースホルダーが残っています。")
+    if "AI要約を生成できませんでした" in body:
+        errors.append("AI 生成に失敗したフォールバック文面が含まれています。")
+
+    for entry in entries:
+        occurrences = body.count(entry.link)
+        if occurrences == 0:
+            errors.append(f"記事 URL が不足しています: {entry.link}")
+        elif occurrences > 1:
+            errors.append(f"記事 URL が重複しています: {entry.link}")
+
+    return errors
+
+
+def build_correction_prompt(
+    template: str,
+    entries: list[Entry],
+    since: date,
+    until: date,
+    draft: str,
+    errors: list[str],
+) -> str:
+    source = build_weekly_source(entries, since, until)
+    error_lines = "\n".join(f"- {error}" for error in errors)
+    return (
+        template
+        .replace("{{weekly_source}}", source)
+        .replace("{{draft_output}}", draft.strip())
+        .replace("{{validation_errors}}", error_lines)
+    )
+
+
 def summarize_in_japanese_with_copilot_cli(command: str, prompt: str) -> str | None:
     cmd = f"{command} --prompt {shlex.quote(prompt)}"
 
@@ -492,6 +597,7 @@ def render_markdown_ja(
     use_ai: bool,
     copilot_cli_command: str,
     prompt_template_path: str,
+    correction_prompt_template_path: str,
 ) -> str:
     if not entries:
         return "# GitHub Changelog 週間要約\n\n指定期間内の GitHub Changelog 記事は見つかりませんでした。\n\n情報源: https://github.blog/changelog/feed/\n"
@@ -504,7 +610,27 @@ def render_markdown_ja(
     generated = summarize_in_japanese_with_copilot_cli(copilot_cli_command, prompt)
 
     if generated:
-        return generated.rstrip() + "\n"
+        candidate = normalize_generated_markdown(generated, since, until)
+        validation_errors = validate_generated_markdown(candidate, entries, since, until)
+        if not validation_errors:
+            return candidate
+
+        correction_template = load_prompt_template(correction_prompt_template_path)
+        correction_prompt = build_correction_prompt(
+            correction_template,
+            entries,
+            since,
+            until,
+            candidate,
+            validation_errors,
+        )
+        corrected = summarize_in_japanese_with_copilot_cli(copilot_cli_command, correction_prompt)
+        if corrected:
+            corrected_candidate = normalize_generated_markdown(corrected, since, until)
+            corrected_errors = validate_generated_markdown(corrected_candidate, entries, since, until)
+            if not corrected_errors:
+                return corrected_candidate
+
     return render_ai_unavailable_markdown(entries, since, until, "GitHub Copilot CLI の認証または実行に失敗しました")
 
 
@@ -517,16 +643,16 @@ def main() -> int:
     since = parse_date(args.since, default_since)
     until = parse_date(args.until, default_until)
     if since > until:
-        print("--since must be earlier than or equal to --until", file=sys.stderr)
+        print("--since は --until 以下の日付を指定してください", file=sys.stderr)
         return 2
 
     try:
         xml_bytes = fetch_feed(FEED_URL)
     except Exception as exc:  # pragma: no cover
-        print(f"Failed to download feed: {exc}", file=sys.stderr)
+        print(f"フィードの取得に失敗しました: {exc}", file=sys.stderr)
         return 1
 
-    entries = filter_entries(parse_feed(xml_bytes), since, until)
+    entries = filter_target_entries(filter_entries(parse_feed(xml_bytes), since, until))
     
     # Apply three-layer strategy: RSS → cache → official page
     entries = check_and_fill_missing_entries(entries, since, until)
@@ -538,6 +664,7 @@ def main() -> int:
         use_ai=args.use_github_ai,
         copilot_cli_command=args.copilot_cli_command,
         prompt_template_path=args.prompt_template,
+        correction_prompt_template_path=args.correction_prompt_template,
     )
 
     with open(args.output, "w", encoding="utf-8") as output_file:

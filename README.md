@@ -168,13 +168,19 @@ grep -n "AI要約を生成できませんでした\|^Action:\|^Copilot:" CHANGEL
 
 GitHub 上で以下を開きます。
 
-- `Actions` → `Generate Changelog` → `Run workflow`
+- `Actions` → `Changelog 週次生成` → `Run workflow`
 
 入力値:
 
 - `since`: 開始日 `YYYY-MM-DD`
 - `until`: 終了日 `YYYY-MM-DD`
 - `use_ai`: `true` または `false`
+
+この workflow は生成後に自動検証も行います。
+
+- 生成内容に `AI要約を生成できませんでした` が含まれる場合は失敗します
+- `scripts/verify_changelog.py` で Action / Copilot の対象記事が揃っているか確認します
+- 検証に通った `CHANGELOG.md` だけを成果物として保存します
 
 ### 5.2 GitHub Actions で推奨する設定
 
@@ -341,6 +347,31 @@ copilot --prompt "OK だけ出力してください" --silent
 
 - 必ず `prompts/changelog_weekly_ja.md` を使う
 - 形式を変えたい場合はテンプレートだけを編集する
+- workflow 実行時は一次生成後に自動矯正が走るため、軽微な形式崩れは再整形される
+
+### 8.6 workflow では通るが手元実行で結果がずれる
+
+原因候補:
+
+- ローカルでは検証を実行していない
+- `--correction-prompt-template` を付けていない古いコマンドを使っている
+
+推奨手順:
+
+```bash
+python3 scripts/generate_github_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25 \
+  --use-github-ai \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
+  --output CHANGELOG.md
+
+python3 scripts/verify_changelog.py \
+  --since 2026-03-18 \
+  --until 2026-03-25
+```
 
 ### 8.5 対象期間の件数が想定より少ない
 

@@ -1,22 +1,22 @@
-name: Generate Changelog
+name: Changelog 週次生成
 
 on:
   workflow_dispatch:
     inputs:
       since:
-        description: "Start date (YYYY-MM-DD, JST). Leave blank to auto-compute the last 7 days."
+        description: "開始日です。形式は YYYY-MM-DD。未指定時は直近 7 日を自動計算します。"
         required: false
         default: ""
       until:
-        description: "End date (YYYY-MM-DD, JST). Leave blank to use today."
+        description: "終了日です。形式は YYYY-MM-DD。未指定時は当日を使います。"
         required: false
         default: ""
       use_ai:
-        description: "Use AI to generate Japanese summary via Copilot CLI."
+        description: "Copilot CLI を使って日本語要約を生成します。"
         required: false
         default: "true"
   schedule:
-    # Every Sunday at 00:00 JST (= Sunday 15:00 UTC)
+    # 毎週日曜 00:00 JST
     - cron: "0 15 * * 0"
 
 jobs:
@@ -26,15 +26,15 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
+      - name: リポジトリを取得
         uses: actions/checkout@v5
 
-      - name: Set up Python
+      - name: Python をセットアップ
         uses: actions/setup-python@v6
         with:
           python-version: '3.x'
 
-      - name: Compute JST date window (last 7 days incl. today)
+      - name: 対象期間を計算
         id: dates
         shell: bash
         run: |
@@ -55,15 +55,15 @@ jobs:
 
           echo "since=$SINCE" >> $GITHUB_OUTPUT
           echo "until=$UNTIL" >> $GITHUB_OUTPUT
-          echo "GitHub Changelog summary window: $SINCE → $UNTIL (JST)"
+          echo "対象期間: $SINCE ～ $UNTIL (JST)"
 
-      - name: Install Copilot CLI (if AI enabled)
+      - name: Copilot CLI をインストール
         if: ${{ github.event.inputs.use_ai != 'false' }}
         run: |
           npm install -g @github/copilot
           copilot --version
 
-      - name: Generate GitHub Changelog weekly summary
+      - name: CHANGELOG を生成
         env:
           # Copilot CLI 認証トークン（Fine-grained PAT）
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
@@ -74,8 +74,8 @@ jobs:
 
           echo "use_ai=$USE_AI"
           if [ "$USE_AI" = "true" ] && [ -z "${COPILOT_GITHUB_TOKEN:-}" ]; then
-            echo "ERROR: COPILOT_GITHUB_TOKEN is missing." >&2
-            echo "Required: Create Fine-grained PAT with 'Copilot Requests: Read' permission." >&2
+            echo "エラー: COPILOT_GITHUB_TOKEN が設定されていません。" >&2
+            echo "Copilot Requests: Read 権限つきの Fine-grained PAT を設定してください。" >&2
             exit 1
           fi
 
@@ -83,6 +83,7 @@ jobs:
             --since "${{ steps.dates.outputs.since }}"
             --until "${{ steps.dates.outputs.until }}"
             --prompt-template prompts/changelog_weekly_ja.md
+            --correction-prompt-template prompts/changelog_weekly_ja_review.md
             --output CHANGELOG.md
           )
 
@@ -96,18 +97,36 @@ jobs:
           python3 scripts/generate_github_changelog.py "${ARGS[@]}"
 
           if [ "$USE_AI" = "true" ] && grep -q "AI要約を生成できませんでした" CHANGELOG.md; then
-            echo "ERROR: AI summarization failed and fallback content was generated." >&2
-            echo "Hint: verify COPILOT_GITHUB_TOKEN exists and has 'Copilot Requests: Read' permission." >&2
-            echo "Hint: ensure Copilot CLI is installed: npm install -g @github/copilot" >&2
+            echo "エラー: AI 要約に失敗し、フォールバック出力が生成されました。" >&2
+            echo "COPILOT_GITHUB_TOKEN と Copilot Requests: Read 権限を確認してください。" >&2
+            echo "Copilot CLI は npm install -g @github/copilot で導入できます。" >&2
             exit 1
           fi
 
-      - name: Show changelog
+      - name: 生成結果を検証
+        run: |
+          python3 scripts/verify_changelog.py \
+            --since "${{ steps.dates.outputs.since }}" \
+            --until "${{ steps.dates.outputs.until }}" | tee verify_result.txt
+
+      - name: 検証結果をサマリーに出力
+        run: |
+          {
+            echo "検証結果"
+            echo
+            echo '```text'
+            cat verify_result.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: CHANGELOG を表示
         run: cat CHANGELOG.md
 
-      - name: Upload changelog artifact
+      - name: 成果物を保存
         uses: actions/upload-artifact@v5
         with:
           name: changelog-${{ steps.dates.outputs.since }}_${{ steps.dates.outputs.until }}
-          path: CHANGELOG.md
+          path: |
+            CHANGELOG.md
+            verify_result.txt
           retention-days: 90

@@ -11,10 +11,10 @@ RSS フィードは最近のエントリーのみを保持（約 10-30 件）し
 第1層: RSS フィード（高速、最新）
   → 0 件～N 件のデータ（時間経過に依存）
   ↓
-第2層: ローカルキャッシュ (cache.json)
+第2層: ローカルキャッシュ（cache.json）
   → 履歴データを高速に補充
   ↓
-第3層: 公式ウェブページスクレイピング (GitHub Changelog ウェブ)
+第3層: 公式ウェブページ取得（GitHub Changelog の Sitemap）
   → 完全取得、キャッシュを自動更新
 ```
 
@@ -33,12 +33,12 @@ cached = get_cached_entries(since, until)
 entries.extend(cached)  # 履歴データを補充
 ```
 
-### 3. ウェブページスクレイピング（オプション）
-データがまだ不足している場合（< 5 件）：
+### 3. 公式ページ補完（必要時のみ）
+RSS が対象期間の開始日まで届いていない場合:
 ```python
 web_entries = fetch_from_official_page(since, until)
 entries.extend(web_entries)
-save_cache(cache)  # キャッシュを自動更新、次回使用時に使用
+save_cache(cache)  # キャッシュを自動更新し、次回以降に再利用
 ```
 
 ## ファイル説明
@@ -63,12 +63,13 @@ save_cache(cache)  # キャッシュを自動更新、次回使用時に使用
 - 実行成功後も保持、手動メンテナンスは不要
 
 ### `scripts/generate_github_changelog.py` - メインスクリプト
-**新規関数**:
+**主な関数**:
 - `load_cache()` - キャッシュを読み込み
 - `save_cache()` - キャッシュを保存
 - `get_cached_entries()` - キャッシュから特定の日付範囲のデータを取得
-- `fetch_from_official_page()` - 公式ウェブページをスクレイピング
+- `fetch_from_official_page()` - 公式 Sitemap から不足分を補完
 - `check_and_fill_missing_entries()` - 3層戦略を実行
+- `filter_target_entries()` - Action / Copilot の対象記事だけに絞り込む
 
 ## 使用例
 
@@ -77,8 +78,10 @@ save_cache(cache)  # キャッシュを自動更新、次回使用時に使用
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-16 \
   --until 2026-03-22 \
-  --language ja \
   --use-github-ai \
+  --copilot-cli-command "copilot --silent" \
+  --prompt-template prompts/changelog_weekly_ja.md \
+  --correction-prompt-template prompts/changelog_weekly_ja_review.md \
   --output CHANGELOG.md
 ```
 **予期される出力**: 
@@ -91,7 +94,6 @@ python3 scripts/generate_github_changelog.py \
 python3 scripts/generate_github_changelog.py \
   --since 2026-03-11 \
   --until 2026-03-18 \
-  --language ja \
   --output CHANGELOG.md
 ```
 **予期される出力**:
@@ -105,7 +107,6 @@ python3 scripts/generate_github_changelog.py \
 python3 scripts/generate_github_changelog.py \
   --since 2026-02-15 \
   --until 2026-02-21 \
-  --language ja \
   --output CHANGELOG.md
 ```
 **予期される出力**:
@@ -132,10 +133,17 @@ python3 scripts/generate_github_changelog.py \
 
 ## 制限事項と今後の改善
 
-1. **現在**: ウェブスクレイピングは正規表現のみ（シンプルだが信頼性がある）
+1. **現在**: Sitemap 解析は正規表現中心（シンプルで依存が少ない）
 2. **将来**: BeautifulSoup に切り替え、より複雑な HTML パースが可能
 3. **現在**: キャッシュキーは "開始_終了"、固定範囲
 4. **将来**: タイムスタンプ範囲に変更、クロスレンジクエリをサポート可能
+
+## 出力品質の担保
+
+- 一次生成は `prompts/changelog_weekly_ja.md` を使用
+- 生成後に `prompts/changelog_weekly_ja_review.md` を使って形式崩れを矯正
+- 最後に `scripts/verify_changelog.py` で Action / Copilot の記事漏れを検証
+- GitHub Actions では検証成功時のみ成果物を保存
 
 ## デバッグ
 
