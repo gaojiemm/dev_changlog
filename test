@@ -1,19 +1,25 @@
-name: Test Schedule JST
+name: JST定期実行テスト
 
 on:
   schedule:
-    # 建议设置一个离现在最近的时间点进行测试
-    # 比如现在是 16:30，你可以设置为 16:45
-    - cron: '45 16 * * *'
+    # 毎日 日本時間 17:00 (JST) に実行
+    # cron: '分 時 日 月 曜日'
+    - cron: '0 17 * * *'
       timezone: Asia/Tokyo
-  workflow_dispatch: # 保留手动按钮，方便对比日志
+  workflow_dispatch: # 手動実行用ボタン（テスト用）
 
 jobs:
-  test-log:
+  test-job:
+    name: 実行ログの確認
     runs-on: ubuntu-latest
     steps:
-      - name: Display Current Time
+      - name: 現在時刻を表示する
         run: |
-          echo "Workflow 触发时间 (UTC): $(date -u)"
-          echo "Workflow 触发时间 (Local): $(date)"
-          echo "触发事件名称: ${{ github.event_name }}"
+          echo "-------- 実行情報 --------"
+          echo "JST時刻: $(TZ='Asia/Tokyo' date)"
+          echo "UTC時刻: $(date -u)"
+          echo "トリガー: ${{ github.event_name }}"
+          echo "--------------------------"
+
+      - name: 日本語のステップ
+        run: echo "定期実行のテストに成功しました。"
